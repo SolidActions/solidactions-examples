@@ -1,0 +1,77 @@
+project: features-examples
+
+workflows:
+  - id: sequential-steps
+    name: Sequential Steps
+    file: src/sequential-steps.ts
+    trigger: webhook
+
+  - id: durable-sleep
+    name: Durable Sleep
+    file: src/durable-sleep.ts
+    trigger: webhook
+
+  - id: approval-signal
+    name: Approval Signal
+    file: src/approval-signal.ts
+    trigger: webhook
+
+  - id: parent-child
+    name: Parent Child
+    file: src/parent-child.ts
+    trigger: webhook
+
+  - id: child-workflow
+    name: Child Workflow
+    file: src/child-workflow.ts
+    trigger: internal
+
+  - id: retry-backoff
+    name: Retry Backoff
+    file: src/retry-backoff.ts
+    trigger: webhook
+
+  - id: scheduled-cron
+    name: Scheduled Cron
+    file: src/scheduled-cron.ts
+    trigger: schedule
+    schedule: "0 * * * *"
+
+  - id: events-progress
+    name: Events Progress
+    file: src/events-progress.ts
+    trigger: webhook
+
+  - id: parallel-steps
+    name: Parallel Steps
+    file: src/parallel-steps.ts
+    trigger: webhook
+
+  - id: messaging-receiver
+    name: Messaging Receiver
+    file: src/messaging-receiver.ts
+    trigger: webhook
+
+  - id: messaging-sender
+    name: Messaging Sender
+    file: src/messaging-sender.ts
+    trigger: internal
+
+  - id: oauth-tokens
+    name: OAuth Tokens
+    file: src/oauth-tokens.ts
+    trigger: webhook
+
+  - id: webhook-response
+    name: Webhook Response
+    file: src/webhook-response.ts
+    trigger: webhook
+    webhook:
+      method: [POST]
+      auth: none
+      response: wait
+      timeout: 60
+
+env:
+  - name: GITHUB_TOKEN
+    global_key: GITHUB_TOKEN
