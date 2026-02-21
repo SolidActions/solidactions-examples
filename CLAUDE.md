@@ -106,7 +106,26 @@ workflows:
 env:
   - MY_VAR                    # Declared only, configure via UI/CLI
   - MY_VAR: MY_GLOBAL_VAR    # Mapped to a global variable
+  - GITHUB_TOKEN:             # Mapped to an OAuth connection
+      oauth: "GitHub Personal"
 ```
+
+#### OAuth connection mapping
+
+Map an env var to a named OAuth connection. The platform fetches a fresh access token from Nango at runtime and injects it as the env var.
+
+```yaml
+env:
+  - GITHUB_TOKEN:
+      oauth: "GitHub Personal"    # Must match an OAuth connection name in the UI
+  - GOOGLE_TOKEN:
+      oauth: "Google Calendar 1"
+```
+
+- An env var maps to **either** a global variable **or** an OAuth connection, not both
+- Connection names must be unique per tenant
+- If the connection doesn't exist yet, it auto-resolves when created later
+- Workflow code accesses the token via `process.env.GITHUB_TOKEN`
 
 #### Trigger types
 
