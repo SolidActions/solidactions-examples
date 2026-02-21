@@ -72,9 +72,13 @@ import { childTask } from './child-workflow';
 ```yaml
 project: my-project
 
+# Push .env values to the platform on deploy (default: false)
+deployEnv: true
+
 workflows:
   - id: my-workflow
     name: My Workflow
+    description: Handles incoming requests
     file: src/my-workflow.ts
     trigger: webhook
 
@@ -100,8 +104,8 @@ workflows:
       timeout: 60
 
 env:
-  - name: MY_VAR
-    global_key: MY_GLOBAL_VAR
+  - MY_VAR                    # Declared only, configure via UI/CLI
+  - MY_VAR: MY_GLOBAL_VAR    # Mapped to a global variable
 ```
 
 #### Trigger types
@@ -118,12 +122,46 @@ env:
 webhook:
   method: [GET, POST]       # Allowed HTTP methods (default: POST)
   auth: none                # hmac | basic | header | none (default: hmac)
+  auth_header: X-API-Key    # Custom header name (for auth: header)
   response: wait            # instant | wait (default: instant)
   timeout: 60               # Wait timeout in seconds, 1-300 (default: 30)
   path: hooks/my-endpoint   # Custom URL path (optional, must be unique)
 ```
 
 For a simple webhook with defaults, just use `trigger: webhook` with no `webhook:` block.
+
+#### Authentication strategies
+
+| Strategy | YAML Value | How It Works |
+|----------|-----------|--------------|
+| **HMAC** (default) | `hmac` | SHA-256 signature via `X-Hub-Signature-256`, `X-Signature-256`, or `Stripe-Signature` headers |
+| **Basic** | `basic` | HTTP Basic Auth with stored credentials |
+| **Header** | `header` | Custom header (default `X-API-Key`) checked against webhook secret. Customize with `auth_header`. |
+| **None** | `none` | No authentication. All requests accepted. |
+
+#### Custom instant response with template variables
+
+Override the default 202 response with a custom status code and body:
+
+```yaml
+webhook:
+  method: POST
+  auth: none
+  response:
+    mode: instant
+    status: 200
+    body:
+      ok: true
+      request_id: "{{run_uuid}}"
+      trigger: "{{trigger_id}}"
+      received_at: "{{timestamp}}"
+```
+
+Template variables resolved at request time: `{{run_uuid}}`, `{{trigger_id}}`, `{{timestamp}}`.
+
+#### Wait-mode early response
+
+In wait-mode webhook workflows, the SDK's `respond()` method sends an explicit response to the caller before the workflow finishes. If `respond()` is never called, the caller receives the workflow's final return value instead.
 
 ---
 
@@ -255,14 +293,15 @@ The container exits during `recv()` and resumes when a message arrives or timeou
 
 ### External Signals — getSignalUrls()
 
-Generate approve/reject URLs for human-in-the-loop workflows:
+Generate approve/reject URLs for human-in-the-loop workflows. This is **synchronous** (no await):
 
 ```typescript
-const { approve, reject } = await SolidActions.getSignalUrls();
-// Send these URLs to a human (via email, Slack, etc.)
+const urls = SolidActions.getSignalUrls('approval');
+// urls has: { base, approve, reject, custom: (action: string) => string }
+// Send approve/reject URLs to a human (via email, Slack, etc.)
 // When they click one, the workflow resumes
 
-const signal = await SolidActions.recv<{ approved: boolean }>("approval", 3600);
+const signal = await SolidActions.recv<{ choice: string; reason?: string }>('approval', 3600);
 ```
 
 ### Events — setEvent() / getEvent()
@@ -276,6 +315,25 @@ await SolidActions.setEvent("progress", { percent: 50, status: "processing" });
 // From anywhere: read the latest event value
 const progress = await SolidActions.getEvent<ProgressType>(workflowID, "progress", timeoutSeconds);
 ```
+
+### Streaming — writeStream() / readStream() / closeStream()
+
+Stream data in real time from workflows to clients. Useful for LLM streaming, progress reporting, or long-running result feeds.
+
+```typescript
+// Write a value to a stream (from workflows or steps)
+await SolidActions.writeStream("progress", { step: i, result });
+
+// Close a stream when done
+await SolidActions.closeStream("progress");
+
+// Read a stream (from anywhere)
+for await (const value of SolidActions.readStream(workflowID, "progress")) {
+  console.log(value);
+}
+```
+
+Streams are append-only. Writes from a workflow happen exactly-once. Streams are automatically closed when the workflow terminates.
 
 ### Webhook Response — respond()
 
@@ -382,8 +440,13 @@ interface SolidActionsConfig {
   };
   enableOTLP?: boolean;
   logLevel?: string;
+  runAdminServer?: boolean;
+  adminPort?: number;
+  applicationVersion?: string;
 }
 ```
+
+There is no `systemDatabaseUrl`. The SDK communicates with the SolidActions platform via HTTP API (`api.url` and `api.key`).
 
 ---
 
@@ -426,20 +489,33 @@ solidactions logout
 ### Deploying Projects
 
 ```bash
-# Deploy from project directory
+# Deploy from current directory
 solidactions deploy my-project
 
-# Deploy from a specific path
+# Deploy from a specific path (recommended to avoid deploying wrong directory)
 solidactions deploy my-project ./path/to/project
 
-# Deploy to a specific environment
-solidactions deploy my-project --env dev --create
-solidactions deploy my-project --env staging --create
+# Deploy to staging or production
+solidactions deploy my-project ./path/to/project --env staging --create
+solidactions deploy my-project ./path/to/project --env production
 ```
+
+The `[path]` argument is optional (defaults to current directory), but specifying it is recommended to avoid accidentally deploying a large directory.
 
 Each project folder is deployed independently. Imports/references are intra-project only. Cross-project communication uses webhooks or messaging.
 
-After deploying, find your webhook URLs in the SolidActions UI (there is no CLI command to list webhook URLs). Each webhook-triggered workflow gets a unique URL you can give to external services.
+### Webhooks
+
+```bash
+# List webhook URLs for a project
+solidactions webhooks my-project
+
+# List webhooks for a specific environment
+solidactions webhooks my-project --env staging
+
+# Show webhook secrets
+solidactions webhooks my-project --show-secrets
+```
 
 ### Running Workflows
 
@@ -479,17 +555,28 @@ solidactions env:create MY_VAR "my-value"
 # Create a secret (hidden in listings)
 solidactions env:create API_KEY "secret123" --secret
 
+# Create with per-environment values
+solidactions env:create DB_URL "prod-url" --staging-value "staging-url" --dev-value "dev-url"
+
+# Create with environment inheritance
+solidactions env:create MY_VAR "prod-value" --staging-inherit --dev-inherit-staging
+
 # List global variables
 solidactions env:list
 
 # List project variable mappings
 solidactions env:list my-project
 
+# List for a specific environment
+solidactions env:list my-project --env staging
+
 # Map a global variable to a project key
 solidactions env:map my-project LOCAL_NAME GLOBAL_KEY
 
 # Pull env vars for local development
-solidactions env:pull my-project > .env
+solidactions env:pull my-project
+solidactions env:pull my-project --env staging
+solidactions env:pull my-project --env staging --output .env.staging
 
 # Delete a variable
 solidactions env:delete MY_VAR --yes
@@ -501,6 +588,9 @@ solidactions env:delete my-project MY_VAR --yes
 ```bash
 # Set a cron schedule
 solidactions schedule:set my-project "0 9 * * *" --workflow my-workflow
+
+# Set with JSON input
+solidactions schedule:set my-project "0 9 * * *" --workflow my-workflow -i '{"key": "value"}'
 
 # List schedules
 solidactions schedule:list my-project
@@ -514,6 +604,35 @@ solidactions schedule:delete my-project <schedule-id> --yes
 ```bash
 solidactions pull my-project ./backup
 ```
+
+---
+
+## Multi-Environment Deployment
+
+SolidActions supports three environments: **dev** (default), **staging**, and **production**.
+
+```bash
+# Deploy to dev (default)
+solidactions deploy my-project ./path/to/project
+
+# Deploy to staging (creates project if --create flag)
+solidactions deploy my-project ./path/to/project --env staging --create
+
+# Deploy to production
+solidactions deploy my-project ./path/to/project --env production
+```
+
+### Environment Variable Inheritance
+
+Global variables can have per-environment values with an inheritance chain:
+
+| Environment | Resolution |
+|-------------|-----------|
+| **Production** | Uses production value directly (required) |
+| **Staging** | Uses staging value if set, otherwise inherits from production |
+| **Dev** | Uses dev value if set, otherwise inherits from staging or production |
+
+Variables are resolved at runtime and injected into the Docker container. Workflow code accesses them via `process.env`.
 
 ---
 
@@ -542,14 +661,14 @@ solidactions pull my-project ./backup
    solidactions env:create MY_VAR "value" --secret
    solidactions env:map my-project MY_VAR MY_VAR
    ```
-3. Deploy to dev: `solidactions deploy my-project --env dev --create`
+3. Deploy to dev (default): `solidactions deploy my-project`
 4. Test: `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
 5. Check logs: `solidactions runs my-project` then `solidactions logs <run-id>`
 
 ### Phase 4: Deploy to Production
 
 1. Set up production env vars in SolidActions UI or CLI
-2. Deploy: `solidactions deploy my-project`
+2. Deploy: `solidactions deploy my-project --env production`
 3. Verify in SolidActions UI
 
 ---
@@ -649,14 +768,76 @@ import { SolidActions } from "@solidactions/sdk";
 async function approvalWorkflow(input: { requestId: string }): Promise<{ approved: boolean }> {
   await SolidActions.runStep(() => createRequest(input), { name: "createRequest" });
 
-  const { approve, reject } = await SolidActions.getSignalUrls();
+  // getSignalUrls is synchronous — no await needed
+  const urls = SolidActions.getSignalUrls('approval');
   // Send approve/reject URLs to approver (email, Slack, etc.)
-  await SolidActions.runStep(() => notifyApprover(approve, reject), { name: "notify" });
+  await SolidActions.runStep(() => notifyApprover(urls.approve, urls.reject), { name: "notify" });
 
   // Container exits here, resumes when signal arrives
-  const signal = await SolidActions.recv<{ approved: boolean }>("approval", 86400);
+  const signal = await SolidActions.recv<{ choice: string; reason?: string }>('approval', 86400);
 
   if (!signal) return { approved: false }; // Timeout
-  return signal;
+  return { approved: signal.choice === 'approve' };
 }
 ```
+
+
+<!-- CLAVIX:START -->
+## Clavix Integration
+
+This project uses Clavix for prompt improvement and PRD generation. The following slash commands are available:
+
+> **Command Format:** Commands shown with colon (`:`) format. Some tools use hyphen (`-`): Claude Code uses `/clavix:improve`, Cursor uses `/clavix-improve`. Your tool autocompletes the correct format.
+
+### Prompt Optimization
+
+#### /clavix:improve [prompt]
+Optimize prompts with smart depth auto-selection. Clavix analyzes your prompt quality and automatically selects the appropriate depth (standard or comprehensive). Use for all prompt optimization needs.
+
+### PRD & Planning
+
+#### /clavix:prd
+Launch the PRD generation workflow. Clavix will guide you through strategic questions and generate both a comprehensive PRD and a quick-reference version optimized for AI consumption.
+
+#### /clavix:plan
+Generate an optimized implementation task breakdown from your PRD. Creates a phased task plan with dependencies and priorities.
+
+#### /clavix:implement
+Execute tasks or prompts with AI assistance. Auto-detects source: tasks.md (from PRD workflow) or prompts/ (from improve workflow). Supports automatic git commits and progress tracking.
+
+Use `--latest` to implement most recent prompt, `--tasks` to force task mode.
+
+### Session Management
+
+#### /clavix:start
+Enter conversational mode for iterative prompt development. Discuss your requirements naturally, and later use `/clavix:summarize` to extract an optimized prompt.
+
+#### /clavix:summarize
+Analyze the current conversation and extract key requirements into a structured prompt and mini-PRD.
+
+### Refinement
+
+#### /clavix:refine
+Refine existing PRD or prompt through continued discussion. Detects available PRDs and saved prompts, then guides you through updating them with tracked changes.
+
+### Agentic Utilities
+
+These utilities provide structured workflows for common tasks. Invoke them using the slash commands below:
+
+- **Verify** (`/clavix:verify`): Check implementation against PRD requirements. Runs automated validation and generates pass/fail reports.
+- **Archive** (`/clavix:archive`): Archive completed work. Moves finished PRDs and outputs to archive for future reference.
+
+**When to use which mode:**
+- **Improve mode** (`/clavix:improve`): Smart prompt optimization with auto-depth selection
+- **PRD mode** (`/clavix:prd`): Strategic planning with architecture and business impact
+
+**Recommended Workflow:**
+1. Start with `/clavix:prd` or `/clavix:start` for complex features
+2. Refine requirements with `/clavix:refine` as needed
+3. Generate tasks with `/clavix:plan`
+4. Implement with `/clavix:implement`
+5. Verify with `/clavix:verify`
+6. Archive when complete with `/clavix:archive`
+
+**Pro tip**: Start complex features with `/clavix:prd` or `/clavix:start` to ensure clear requirements before implementation.
+<!-- CLAVIX:END -->

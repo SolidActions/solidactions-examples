@@ -1,0 +1,57 @@
+project: google-calendar-sync
+
+deployEnv: true
+
+env:
+  - GCAL_OAUTH_TOKEN: GCAL_OAUTH_TOKEN
+  - GSHEET_OAUTH_TOKEN: GSHEET_OAUTH_TOKEN
+  - SPREADSHEET_ID: SPREADSHEET_ID
+  - CALENDAR_A_ID: CALENDAR_A_ID
+  - CALENDAR_B_ID: CALENDAR_B_ID
+  - CALENDAR_A_PREFIX: CALENDAR_A_PREFIX
+  - CALENDAR_B_PREFIX: CALENDAR_B_PREFIX
+  - MAX_EVENTS: MAX_EVENTS
+  - DAYS_AHEAD: DAYS_AHEAD
+  - TELEGRAM_BOT_TOKEN: TELEGRAM_BOT_TOKEN
+  - TELEGRAM_CHAT_ID: TELEGRAM_CHAT_ID
+workflows:
+  - id: sync-google-calendars
+    name: Sync Google Calendars
+    description: Bidirectional calendar sync running every 15 minutes
+    file: src/sync-google-calendars.ts
+    trigger: schedule
+    schedule: "*/15 * * * *"
+
+  - id: sync-google-calendars-webhook
+    name: Sync Google Calendars (Webhook)
+    description: On-demand sync trigger for testing and manual runs
+    file: src/sync-google-calendars.ts
+    trigger: webhook
+    webhook:
+      method: [POST]
+      auth: none
+      response: wait
+      timeout: 300
+
+  - id: sync-core
+    name: Sync Core
+    description: Internal sync workflow for child invocation
+    file: src/sync-core.ts
+    trigger: internal
+
+  - id: init-database
+    name: Initialize Database
+    description: Create synced_events sheet with headers (idempotent)
+    file: src/init-database.ts
+    trigger: webhook
+
+  - id: test-sync
+    name: Integration Test Suite
+    description: End-to-end tests for calendar sync (creates events, syncs, verifies)
+    file: src/test-sync.ts
+    trigger: webhook
+    webhook:
+      method: [POST]
+      auth: none
+      response: wait
+      timeout: 300

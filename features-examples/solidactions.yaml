@@ -1,77 +1,102 @@
+# SolidActions Feature Examples
+# Demonstrates all major SDK workflow patterns
 project: features-examples
 
+env:
+  # Seed for deterministic random in retry tests (configure via .env or UI)
+  - SOLIDACTIONS_TEST_SEED
+
+  # URL and secret for message-receiver to trigger message-sender workflow
+  - SENDER_WEBHOOK_URL
+  - SENDER_WEBHOOK_SECRET
+
 workflows:
-  - id: sequential-steps
-    name: Sequential Steps
-    file: src/sequential-steps.ts
+  # Basic Patterns
+
+  - id: simple-steps
+    name: Simple Steps (6 steps with env vars)
+    file: src/simple-steps.ts
     trigger: webhook
 
-  - id: durable-sleep
-    name: Durable Sleep
-    file: src/durable-sleep.ts
-    trigger: webhook
-
-  - id: approval-signal
-    name: Approval Signal
-    file: src/approval-signal.ts
+  - id: sleep-workflow
+    name: Sleep Workflow (durable sleep)
+    file: src/sleep-workflow.ts
     trigger: webhook
 
   - id: parent-child
-    name: Parent Child
+    name: Parent Child (spawn + await)
     file: src/parent-child.ts
     trigger: webhook
 
-  - id: child-workflow
-    name: Child Workflow
-    file: src/child-workflow.ts
+  - id: child-task
+    name: Child Task (internal)
+    file: src/child-task.ts
     trigger: internal
 
-  - id: retry-backoff
-    name: Retry Backoff
-    file: src/retry-backoff.ts
+  - id: invoice-approval
+    name: Invoice Approval (external signals)
+    file: src/invoice-approval.ts
     trigger: webhook
 
-  - id: scheduled-cron
-    name: Scheduled Cron
-    file: src/scheduled-cron.ts
+  - id: retry-workflow
+    name: Retry Workflow (retries with backoff)
+    file: src/retry-workflow.ts
+    trigger: webhook
+
+  - id: scheduled-workflow
+    name: Scheduled Workflow (cron tasks)
+    file: src/scheduled-workflow.ts
     trigger: schedule
     schedule: "0 * * * *"
 
-  - id: events-progress
-    name: Events Progress
-    file: src/events-progress.ts
+  # Advanced Patterns
+
+  - id: event-workflow
+    name: Event Workflow (setEvent progress)
+    file: src/event-workflow.ts
     trigger: webhook
 
+  - id: message-sender
+    name: Message Sender (worker)
+    file: src/message-sender.ts
+    trigger: webhook
+
+  - id: message-receiver
+    name: Message Receiver (entry point)
+    file: src/message-receiver.ts
+    trigger: webhook
+
+  - id: multistep-parent
+    name: Multistep Parent (complex child)
+    file: src/multistep-parent.ts
+    trigger: webhook
+
+  - id: multistep-child
+    name: Multistep Child (4 steps)
+    file: src/multistep-child.ts
+    trigger: internal
+
   - id: parallel-steps
-    name: Parallel Steps
+    name: Parallel Steps (Promise.allSettled)
     file: src/parallel-steps.ts
     trigger: webhook
 
-  - id: messaging-receiver
-    name: Messaging Receiver
-    file: src/messaging-receiver.ts
-    trigger: webhook
+  # Webhook Features
 
-  - id: messaging-sender
-    name: Messaging Sender
-    file: src/messaging-sender.ts
-    trigger: internal
-
-  - id: oauth-tokens
-    name: OAuth Tokens
-    file: src/oauth-tokens.ts
-    trigger: webhook
-
-  - id: webhook-response
-    name: Webhook Response
-    file: src/webhook-response.ts
+  - id: respond-test
+    name: Respond Test (explicit webhook response)
+    file: src/respond-test.ts
     trigger: webhook
     webhook:
       method: [POST]
       auth: none
-      response: wait
-      timeout: 60
+      response:
+        mode: wait
+        timeout: 60
 
-env:
-  - name: GITHUB_TOKEN
-    global_key: GITHUB_TOKEN
+  # OAuth Integration
+
+  - id: oauth-workflow
+    name: OAuth Workflow (token injection)
+    file: src/oauth-workflow.ts
+    trigger: webhook

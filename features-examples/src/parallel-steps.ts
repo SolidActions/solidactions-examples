@@ -1,99 +1,113 @@
 /**
- * Parallel Steps Example
+ * Parallel Steps Workflow
  *
- * Demonstrates running multiple steps concurrently using Promise.allSettled().
- * Steps must be started in a deterministic order for reliable recovery.
+ * Demonstrates parallel step execution using Promise.allSettled().
+ * Steps are started in deterministic order and awaited together.
  *
- * Key concepts:
- * - Promise.allSettled() for parallel execution (NOT Promise.all)
- * - Deterministic step ordering
- * - Handling partial failures (some succeed, some fail)
+ * Key points:
+ * - Steps are started in deterministic order (0, 1, 2, 3)
+ * - Use Promise.allSettled() NOT Promise.all() (handles partial failures)
+ * - Each step is a single async operation
+ * - On recovery, already-completed steps are retrieved from cache
+ *
+ * Flow:
+ * 1. Initialize with input items
+ * 2. Process all items in parallel
+ * 3. Aggregate results (successful and failed)
+ * 4. Return summary
  */
 
-import { SolidActions } from "@solidactions/sdk";
+import { SolidActions } from '@solidactions/sdk';
 
-// --- Types ---
-
-interface ParallelInput {
+interface ParallelStepsInput {
   items: string[];
+  failIndex?: number; // Optional: make one item fail for testing partial failures
 }
 
-interface ItemResult {
+interface ProcessedItem {
   item: string;
-  status: "success" | "error";
-  output?: string;
-  error?: string;
+  result: string;
+  processedAt: string;
 }
 
-interface ParallelOutput {
-  total: number;
-  succeeded: number;
-  failed: number;
-  results: ItemResult[];
+interface ParallelStepsResult {
+  inputCount: number;
+  successCount: number;
+  failCount: number;
+  results: ProcessedItem[];
+  errors: string[];
+  completedAt: string;
+  workflowId: string;
 }
 
-// --- Step Functions ---
+// Step function - process a single item
+async function processItem(item: string, shouldFail: boolean): Promise<ProcessedItem> {
+  console.log(`[parallel-steps] Processing: ${item}${shouldFail ? ' (will fail)' : ''}`);
 
-async function processItem(item: string): Promise<string> {
-  // Simulate work — items starting with "fail-" will throw
-  if (item.startsWith("fail-")) {
-    throw new Error(`Processing failed for item: ${item}`);
+  if (shouldFail) {
+    throw new Error(`Intentional failure for item: ${item}`);
   }
-  SolidActions.logger.info(`Processed item: ${item}`);
-  return `result-${item}`;
+
+  // Simulate some processing
+  return {
+    item,
+    result: `processed-${item}`,
+    processedAt: new Date().toISOString(),
+  };
 }
 
-// --- Workflow ---
+// Workflow function
+async function parallelStepsWorkflow(input: ParallelStepsInput): Promise<ParallelStepsResult> {
+  // Apply defaults
+  const items = input.items?.length > 0 ? input.items : ['item-0', 'item-1', 'item-2', 'item-3'];
+  const failIndex = input.failIndex ?? -1; // -1 means no failures
+  const workflowId = SolidActions.workflowID!;
 
-async function parallelStepsWorkflow(input: ParallelInput): Promise<ParallelOutput> {
-  SolidActions.logger.info(
-    `Starting parallel-steps workflow with ${input.items.length} items`
-  );
+  console.log(`[parallel-steps] Starting workflow ${workflowId} with ${items.length} items`);
+  if (failIndex >= 0 && failIndex < items.length) {
+    console.log(`[parallel-steps] Item at index ${failIndex} will intentionally fail`);
+  }
 
-  // Start all steps in a deterministic order, then await them all.
-  // Promise.allSettled() waits for ALL promises to complete (unlike Promise.all
-  // which fails fast on the first rejection).
-  const outcomes = await Promise.allSettled(
-    input.items.map((item, index) =>
-      SolidActions.runStep(() => processItem(item), {
-        name: `process-item-${index}`,
-      })
+  // Process all items in parallel using Promise.allSettled
+  // Steps are started in deterministic order (important for recovery)
+  const results = await Promise.allSettled(
+    items.map((item, index) =>
+      SolidActions.runStep(
+        () => processItem(item, index === failIndex),
+        { name: `process-${index}` }
+      )
     )
   );
 
   // Aggregate results
-  const results: ItemResult[] = input.items.map((item, index) => {
-    const outcome = outcomes[index];
-    if (outcome.status === "fulfilled") {
-      return { item, status: "success" as const, output: outcome.value };
+  const successfulResults: ProcessedItem[] = [];
+  const errors: string[] = [];
+
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      successfulResults.push(result.value);
     } else {
-      return {
-        item,
-        status: "error" as const,
-        error: (outcome.reason as Error).message,
-      };
+      errors.push(`Item ${index}: ${result.reason?.message || 'Unknown error'}`);
     }
   });
 
-  const succeeded = results.filter((r) => r.status === "success").length;
-  const failed = results.filter((r) => r.status === "error").length;
-
-  SolidActions.logger.info(
-    `Parallel processing complete: ${succeeded} succeeded, ${failed} failed`
-  );
+  console.log(`[parallel-steps] Complete: ${successfulResults.length} succeeded, ${errors.length} failed`);
 
   return {
-    total: input.items.length,
-    succeeded,
-    failed,
-    results,
+    inputCount: items.length,
+    successCount: successfulResults.length,
+    failCount: errors.length,
+    results: successfulResults,
+    errors,
+    completedAt: new Date().toISOString(),
+    workflowId,
   };
 }
 
-// --- Register and Run ---
-
-const workflow = SolidActions.registerWorkflow(parallelStepsWorkflow, {
-  name: "parallel-steps",
+// Register the workflow
+export const parallelSteps = SolidActions.registerWorkflow(parallelStepsWorkflow, {
+  name: 'parallel-steps',
 });
 
-SolidActions.run(workflow);
+// Main execution
+SolidActions.run(parallelSteps);

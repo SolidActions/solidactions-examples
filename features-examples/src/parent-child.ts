@@ -1,98 +1,67 @@
 /**
- * Parent-Child Workflow Example
- *
- * Demonstrates spawning a child workflow with SolidActions.startWorkflow()
- * and awaiting its result with handle.getResult(). The parent prepares
- * input, starts the child, waits for completion, then processes the result.
- *
- * Key concepts:
- * - SolidActions.startWorkflow() to spawn child workflows
- * - handle.getResult() to await child completion
- * - Importing child workflows (note .js extension for NodeNext)
- * - Parent-child data flow
+ * Parent Child Workflow - spawns child-task and awaits result
  */
+import { SolidActions } from '@solidactions/sdk';
+import { childTask } from './child-task.js';
 
-import { SolidActions } from "@solidactions/sdk";
-import { childWorkflow } from "./child-workflow.js";
-
-// --- Types ---
-
-interface ParentInput {
+interface ParentChildInput {
+  parentId: string;
   value: number;
-  operation: "double" | "square" | "increment";
 }
 
-interface ParentOutput {
+interface ChildTaskResult {
+  parentId: string;
+  inputValue: number;
+  outputValue: number;
+  operation: string;
+  processedAt: string;
+}
+
+interface ParentChildResult {
+  parentId: string;
   originalValue: number;
-  operation: string;
-  childResult: number;
-  summary: string;
+  childResult: ChildTaskResult;
+  finalValue: number;
+  completedAt: string;
 }
 
-// --- Step Functions ---
-
-async function prepareInput(input: ParentInput): Promise<{
-  value: number;
-  operation: string;
-}> {
-  SolidActions.logger.info(
-    `Preparing child input: ${input.operation}(${input.value})`
-  );
-  return { value: input.value, operation: input.operation };
-}
-
-async function processChildResult(
-  originalValue: number,
-  operation: string,
-  childResult: number
-): Promise<ParentOutput> {
-  SolidActions.logger.info(
-    `Child returned: ${childResult} (from ${operation}(${originalValue}))`
-  );
+async function prepare(parentId: string, value: number) {
+  console.log(`[parent-child] Preparing to spawn child for parent: ${parentId}`);
   return {
-    originalValue,
-    operation,
-    childResult,
-    summary: `${operation}(${originalValue}) = ${childResult}`,
+    preparedAt: new Date().toISOString(),
+    childInput: { parentId, value, operation: 'double' as const },
   };
 }
 
-// --- Workflow ---
-
-async function parentChildWorkflow(input: ParentInput): Promise<ParentOutput> {
-  SolidActions.logger.info(
-    `Starting parent workflow: ${input.operation}(${input.value})`
-  );
-
-  // Step 1: Prepare the input for the child
-  const prepared = await SolidActions.runStep(() => prepareInput(input), {
-    name: "prepare-input",
-  });
-
-  // Start the child workflow and wait for its result.
-  // The child is defined in child-workflow.ts (trigger: internal).
-  const childHandle = await SolidActions.startWorkflow(childWorkflow)({
-    value: prepared.value,
-    operation: prepared.operation,
-  });
-
-  SolidActions.logger.info(`Child workflow started: ${childHandle.workflowID}`);
-  const childResult = await childHandle.getResult();
-
-  // Step 2: Process the child's result
-  const result = await SolidActions.runStep(
-    () =>
-      processChildResult(input.value, input.operation, childResult.result),
-    { name: "process-result" }
-  );
-
-  return result;
+async function processResult(childOutput: number) {
+  console.log(`[parent-child] Processing child output: ${childOutput}`);
+  return { finalValue: childOutput + 100, completedAt: new Date().toISOString() };
 }
 
-// --- Register and Run ---
+async function parentChildFn(input: ParentChildInput): Promise<ParentChildResult> {
+  // Apply defaults
+  const parentId = input.parentId || 'parent-001';
+  const value = input.value ?? 10;
 
-const workflow = SolidActions.registerWorkflow(parentChildWorkflow, {
-  name: "parent-child",
-});
+  const prepared = await SolidActions.runStep(() => prepare(parentId, value), { name: 'prepare' });
 
-SolidActions.run(workflow);
+  console.log(`[parent-child] Spawning child workflow...`);
+  const childHandle = await SolidActions.startWorkflow(childTask)(prepared.childInput);
+  const childResult = await childHandle.getResult();
+  console.log(`[parent-child] Child completed with result: ${childResult.outputValue}`);
+
+  const final = await SolidActions.runStep(() => processResult(childResult.outputValue), { name: 'process-result' });
+
+  return {
+    parentId,
+    originalValue: value,
+    childResult,
+    finalValue: final.finalValue,
+    completedAt: final.completedAt,
+  };
+}
+
+export const parentChild = SolidActions.registerWorkflow(parentChildFn, { name: 'parent-child' });
+
+// Main execution - simplified with SolidActions.run()
+SolidActions.run(parentChild);

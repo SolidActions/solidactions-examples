@@ -28,7 +28,7 @@ solidactions run hello-world hello-world -i '{"name": "Alice"}' -w
 | Project | Description |
 |---------|-------------|
 | [hello-world/](./hello-world/) | Simplest possible SolidActions project — a 3-step "Hello World" workflow |
-| [features-examples/](./features-examples/) | 11 examples demonstrating SDK features: steps, sleep, signals, child workflows, retries, events, messaging, parallel execution, scheduling, OAuth, and webhooks |
+| [features-examples/](./features-examples/) | 15 workflows demonstrating SDK features: steps, sleep, signals, child workflows, retries, events, messaging, parallel execution, scheduling, OAuth, streaming, and webhooks |
 | [google-calendar-sync/](./google-calendar-sync/) | Real-world Google Calendar sync workflow (coming soon) |
 
 ## Development Lifecycle
