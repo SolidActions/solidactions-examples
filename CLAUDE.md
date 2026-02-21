@@ -27,7 +27,7 @@ my-project/
     "build": "tsc"
   },
   "dependencies": {
-    "@solidactions/sdk": "^0.1.1"
+    "@solidactions/sdk": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -536,6 +536,16 @@ solidactions webhooks my-project --env staging
 solidactions webhooks my-project --show-secrets
 ```
 
+### Local Development
+
+```bash
+# Run a workflow locally (no deploy, no auth, no backend needed)
+solidactions dev src/my-workflow.ts
+solidactions dev src/my-workflow.ts -i '{"key": "value"}'
+```
+
+Requires `@solidactions/sdk` v0.2.0+ installed in the project.
+
 ### Running Workflows
 
 ```bash
@@ -672,19 +682,33 @@ Variables are resolved at runtime and injected into the Docker container. Workfl
 3. Write workflow files in `src/`
 4. Create `.env` with your `SOLIDACTIONS_API_KEY` for local testing
 
-### Phase 3: Test
+### Phase 3: Test Locally
 
-1. Build: `npm run build` to verify TypeScript compiles
-2. Push env vars to SolidActions:
+Run workflows locally without deploying using the `dev` command:
+
+```bash
+# Run a workflow with the in-memory mock server (no deploy needed)
+solidactions dev src/my-workflow.ts -i '{"key": "value"}'
+```
+
+This starts an in-memory mock server that implements the full SolidActions API, so all step execution works normally. Use this for fast iteration on workflow logic.
+
+**What works locally:** Sequential & parallel steps, child workflows, events, streams, retries.
+
+**What doesn't (no-ops locally):** Durable sleep scheduler wakeups, cross-process messaging, tenant env var injection.
+
+### Phase 4: Deploy & Test on Platform
+
+1. Push env vars to SolidActions:
    ```bash
    solidactions env:create MY_VAR "value" --secret
    solidactions env:map my-project MY_VAR MY_VAR
    ```
-3. Deploy to dev (default): `solidactions deploy my-project`
-4. Test: `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
-5. Check logs: `solidactions runs my-project` then `solidactions logs <run-id>`
+2. Deploy to dev (default): `solidactions deploy my-project`
+3. Test: `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
+4. Check logs: `solidactions runs my-project` then `solidactions logs <run-id>`
 
-### Phase 4: Deploy to Production
+### Phase 5: Deploy to Production
 
 1. Set up production env vars in SolidActions UI or CLI
 2. Deploy: `solidactions deploy my-project --env production`
