@@ -1,7 +1,5 @@
 project: google-calendar-sync
 
-deployEnv: true
-
 env:
   - GCAL_OAUTH_TOKEN: GCAL_OAUTH_TOKEN
   - GSHEET_OAUTH_TOKEN: GSHEET_OAUTH_TOKEN

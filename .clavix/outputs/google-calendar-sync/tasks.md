@@ -13,7 +13,7 @@
 - **Conventions**: kebab-case file names, step functions defined as standalone async functions above the workflow, JSDoc file headers, sections organized as Types → Step Functions → Workflow → Register and Run
 - **OAuth**: Two separate tokens — `GCAL_OAUTH_TOKEN` for Calendar API, `GSHEET_OAUTH_TOKEN` for Sheets API (auto-refreshed by SolidActions platform)
 - **Storage**: Google Sheets via googleapis (replaces PostgreSQL)
-- **Env vars**: Mapped in `solidactions.yaml` under `env:` section, pushed via `deployEnv: true`
+- **Env vars**: Mapped in `solidactions.yaml` under `env:` section, pushed via `env:push` CLI command
 - **Durability**: Not required for sync steps — acceptable to have brief duplicates on interruption (next run's duplicate filtering catches them)
 
 **Target file structure:**
@@ -53,7 +53,7 @@ google-calendar-sync/
 - [x] **Create solidactions.yaml with both workflows and env mappings** (ref: Workflow Architecture, Env Vars)
   Task ID: phase-1-setup-03
   > **Implementation**: Create `google-calendar-sync/solidactions.yaml`.
-  > **Details**: Project name: `google-calendar-sync`. `deployEnv: true`. Two workflows:
+  > **Details**: Project name: `google-calendar-sync`. Two workflows:
   > 1. `sync-google-calendars`: file `src/sync-google-calendars.ts`, trigger `schedule`, schedule `*/15 * * * *`.
   > 2. `init-database`: file `src/init-database.ts`, trigger `webhook`.
   > Env section (new format): `GCAL_OAUTH_TOKEN`, `GSHEET_OAUTH_TOKEN`, `SPREADSHEET_ID`, `CALENDAR_A_ID`, `CALENDAR_B_ID`, `CALENDAR_A_PREFIX`, `CALENDAR_B_PREFIX`, `MAX_EVENTS`, `DAYS_AHEAD`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`. Each mapped to matching global_key.

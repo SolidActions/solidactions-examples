@@ -72,9 +72,6 @@ import { childTask } from './child-workflow';
 ```yaml
 project: my-project
 
-# Push .env values to the platform on deploy (default: false)
-deployEnv: true
-
 workflows:
   - id: my-workflow
     name: My Workflow
@@ -602,10 +599,19 @@ solidactions env:list my-project --env staging
 # Map a global variable to a project key
 solidactions env:map my-project LOCAL_NAME GLOBAL_KEY
 
-# Pull env vars for local development
+# Pull env vars for local development (includes fresh OAuth tokens)
 solidactions env:pull my-project
 solidactions env:pull my-project --env staging
 solidactions env:pull my-project --env staging --output .env.staging
+
+# Quick refresh of only OAuth tokens (merges into existing .env)
+solidactions env:pull my-project --update-oauth
+
+# Push .env values to a project
+solidactions env:push my-project
+solidactions env:push my-project ./my-app --env production
+solidactions env:push my-project --new-only       # Only push new/empty vars
+solidactions env:push my-project --include-undeclared  # Push all vars, even if not in YAML
 
 # Delete a variable
 solidactions env:delete MY_VAR --yes
@@ -693,18 +699,16 @@ solidactions dev src/my-workflow.ts -i '{"key": "value"}'
 
 This starts an in-memory mock server that implements the full SolidActions API, so all step execution works normally. Use this for fast iteration on workflow logic.
 
+To use real OAuth tokens locally, run `solidactions env:pull my-project` first. The `.env` file will contain fresh access tokens that your workflow can access via `process.env`. Re-run with `--update-oauth` when tokens expire.
+
 **What works locally:** Sequential & parallel steps, child workflows, events, streams, retries.
 
 **What doesn't (no-ops locally):** Durable sleep scheduler wakeups, cross-process messaging, tenant env var injection.
 
 ### Phase 4: Deploy & Test on Platform
 
-1. Push env vars to SolidActions:
-   ```bash
-   solidactions env:create MY_VAR "value" --secret
-   solidactions env:map my-project MY_VAR MY_VAR
-   ```
-2. Deploy to dev (default): `solidactions deploy my-project`
+1. Deploy to dev (default): `solidactions deploy my-project`
+2. Push env vars from local `.env`: `solidactions env:push my-project`
 3. Test: `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
 4. Check logs: `solidactions runs my-project` then `solidactions logs <run-id>`
 
