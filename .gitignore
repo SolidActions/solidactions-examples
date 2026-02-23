@@ -6,9 +6,8 @@ dist/
 
 # Environment variables (keep .env.example files)
 .env
-.env.dev
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # IDE
 .vscode/
