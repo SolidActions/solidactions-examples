@@ -466,6 +466,18 @@ There is no `systemDatabaseUrl`. The SDK communicates with the SolidActions plat
 
 ---
 
+## Critical SDK Rules & Gotchas
+
+1. **Determinism rules**: Never use `fetch()`, file system access (`fs`), or `Math.random()` directly in workflow functions. These are non-deterministic. All side effects must happen inside `SolidActions.runStep()` callbacks.
+2. **Parallel execution**: Use `Promise.allSettled()` instead of `Promise.all()` for parallel steps. `Promise.all` rejects immediately on first failure, leaving other step promises unresolved.
+3. **Deterministic timestamps**: Use `SolidActions.now()` instead of `Date.now()` or `new Date()`. Workflow replay requires deterministic timestamps.
+4. **Deterministic UUIDs**: Use `SolidActions.randomUUID()` instead of `crypto.randomUUID()`. Same reason - replay determinism.
+5. **Step retry config**: Steps support retry configuration: `{ retries: { intervalSeconds: 1, backoffRate: 2, maxAttempts: 3 } }`. Configure based on the step's idempotency and expected failure modes.
+6. **Messaging topics**: `send()` and `recv()` messages without a topic are in a separate channel from messages with topics. Don't mix them expecting they'll be received on the same channel.
+7. **Error handling**: `SolidActionsMaxStepRetriesError` has an `.errors` array containing the error from each retry attempt. Access it for debugging which attempts failed and why.
+
+---
+
 ## Workflow Rules
 
 1. **Workflows must be deterministic.** Same inputs must produce the same step calls in the same order.
