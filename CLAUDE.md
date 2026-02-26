@@ -587,16 +587,20 @@ solidactions logs:build my-project
 ### Environment Variables
 
 ```bash
-# Create a global variable
-solidactions env:create MY_VAR "my-value"
+# Set a global variable (create or update)
+solidactions env:set MY_VAR "my-value"
 
-# Create a secret (hidden in listings)
-solidactions env:create API_KEY "secret123" --secret
+# Set a global secret
+solidactions env:set API_KEY "secret123" --secret
 
-# Create with per-environment values
+# Set a project variable directly (create or update)
+solidactions env:set my-project CUSTOM_VAR "my-value"
+solidactions env:set my-project DB_HOST "prod-db.example.com" --env production
+
+# Create a global variable with per-environment values (env:create only)
 solidactions env:create DB_URL "prod-url" --staging-value "staging-url" --dev-value "dev-url"
 
-# Create with environment inheritance
+# Create with environment inheritance (env:create only)
 solidactions env:create MY_VAR "prod-value" --staging-inherit --dev-inherit-staging
 
 # List global variables
@@ -619,7 +623,7 @@ solidactions env:pull my-project --env staging --output .env.staging
 # Quick refresh of only OAuth tokens (merges into existing .env)
 solidactions env:pull my-project --update-oauth
 
-# Push .env values to a project
+# Push .env values from a .env file to a project
 solidactions env:push my-project
 solidactions env:push my-project ./my-app --env production
 solidactions env:push my-project --new-only       # Only push new/empty vars
