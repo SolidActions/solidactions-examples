@@ -74,6 +74,17 @@ export function buildSyncedDescription(
     parts.push(`🔗 Meeting: ${event.hangoutLink}`);
   }
 
+  // Guest list (non-resource, non-self attendees)
+  const guests = (event.attendees ?? []).filter(
+    (a) => !a.resource && !a.self,
+  );
+  if (guests.length > 0) {
+    const guestNames = guests
+      .map((g) => (g.displayName ? `${g.displayName} (${g.email})` : g.email))
+      .join(", ");
+    parts.push(`👥 Guests: ${guestNames}`);
+  }
+
   // Original description
   if (event.description) {
     parts.push(`\n${event.description}`);

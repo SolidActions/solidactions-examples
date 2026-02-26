@@ -63,6 +63,51 @@ export interface SyncStats {
   errors: number;
 }
 
+/** Pending sheet insert — matches fields needed for a new row */
+export interface PendingSheetInsert {
+  primary_calendar: string;
+  primary_event_id: string;
+  secondary_calendar: string;
+  secondary_event_id: string;
+  event_summary: string;
+  event_start: string;
+  event_end: string;
+  event_signature: string;
+}
+
+/** Pending sheet update — full row data with row ID for in-place rewrite */
+export interface PendingSheetUpdate {
+  rowId: number;
+  primary_calendar: string;
+  primary_event_id: string;
+  secondary_calendar: string;
+  secondary_event_id: string;
+  event_summary: string;
+  event_start: string;
+  event_end: string;
+  event_signature: string;
+  created_at: string;
+}
+
+/** Pending sheet delete — row ID for batch deletion */
+export interface PendingSheetDelete {
+  rowId: number;
+}
+
+/** Return type for refactored syncDirection() */
+export interface SyncDirectionResult {
+  stats: SyncStats;
+  pendingInserts: PendingSheetInsert[];
+  pendingUpdates: PendingSheetUpdate[];
+}
+
+/** Return type for refactored detectAndDeleteOrphans() */
+export interface OrphanDetectionResult {
+  deleted: number;
+  errors: number;
+  pendingDeletes: PendingSheetDelete[];
+}
+
 /** Typed wrapper for all env vars with defaults */
 export interface EnvConfig {
   googleOAuthToken: string;

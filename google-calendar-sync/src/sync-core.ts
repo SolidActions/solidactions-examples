@@ -10,8 +10,12 @@ import { calendar_v3 } from "googleapis";
 import type {
   GoogleCalendarEvent,
   SyncedEventRecord,
-  SyncAnalysis,
   SyncStats,
+  SyncDirectionResult,
+  OrphanDetectionResult,
+  PendingSheetInsert,
+  PendingSheetUpdate,
+  PendingSheetDelete,
 } from "./types.js";
 import {
   getCalendarClient,
@@ -23,9 +27,10 @@ import {
 import {
   getSheetClient,
   loadSyncedEvents,
-  insertSyncedEvent,
-  updateSyncedEvent,
-  deleteSyncedEvent,
+  batchInsertSyncedEvents,
+  batchUpdateSyncedEvents,
+  batchDeleteSyncedEventRows,
+  getSheetId,
 } from "./sheets.js";
 import {
   computeSignature,
@@ -43,6 +48,37 @@ export interface SyncOutput {
   eventsA: number;
   eventsB: number;
   sheetRecords: number;
+}
+
+// --- Helpers ---
+
+const CONCURRENCY = 5;
+const BATCH_DELAY_MS = 1000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function processInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    if (i > 0) await delay(BATCH_DELAY_MS);
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+function getDateString(dt: GoogleCalendarEvent["start"]): string {
+  if (!dt) return "";
+  if ("dateTime" in dt) return dt.dateTime;
+  if ("date" in dt) return dt.date;
+  return "";
 }
 
 // --- Step Functions ---
@@ -67,16 +103,13 @@ async function loadSheetRecords(
 
 async function syncDirection(
   calToken: string,
-  sheetToken: string,
-  spreadsheetId: string,
   sourceEvents: GoogleCalendarEvent[],
   syncedRecords: SyncedEventRecord[],
   sourceCalendarId: string,
   targetCalendarId: string,
   prefix: string,
-): Promise<{ stats: SyncStats; analysis: SyncAnalysis }> {
+): Promise<SyncDirectionResult> {
   const calClient = getCalendarClient(calToken);
-  const sheets = getSheetClient(sheetToken);
 
   const analysis = analyzeEvents(
     sourceEvents,
@@ -86,59 +119,51 @@ async function syncDirection(
   );
 
   const stats: SyncStats = { created: 0, updated: 0, deleted: 0, errors: 0 };
+  const pendingInserts: PendingSheetInsert[] = [];
+  const pendingUpdates: PendingSheetUpdate[] = [];
 
-  // Process creates
-  for (const event of analysis.toCreate) {
-    try {
+  // Process creates with concurrency
+  const createResults = await processInBatches(
+    analysis.toCreate,
+    CONCURRENCY,
+    async (event) => {
       const eventBody = buildSyncedEventBody(event, prefix, sourceCalendarId);
       const created = await createEvent(
         calClient,
         targetCalendarId,
         eventBody as calendar_v3.Schema$Event,
       );
+      return { event, created };
+    },
+  );
 
-      try {
-        const startStr =
-          event.start && "dateTime" in event.start
-            ? event.start.dateTime
-            : event.start && "date" in event.start
-              ? event.start.date
-              : "";
-        const endStr =
-          event.end && "dateTime" in event.end
-            ? event.end.dateTime
-            : event.end && "date" in event.end
-              ? event.end.date
-              : "";
-
-        await insertSyncedEvent(sheets, spreadsheetId, {
-          primary_calendar: sourceCalendarId,
-          primary_event_id: event.id,
-          secondary_calendar: targetCalendarId,
-          secondary_event_id: created.id,
-          event_summary: event.summary ?? "",
-          event_start: startStr,
-          event_end: endStr,
-          event_signature: computeSignature(event),
-        });
-        stats.created++;
-      } catch (sheetError: unknown) {
-        SolidActions.logger.error(
-          `Sheet insert failed for event ${event.id} (orphaned on ${targetCalendarId} as ${created.id}): ${(sheetError as Error).message}`,
-        );
-        stats.errors++;
-      }
-    } catch (apiError: unknown) {
+  for (const result of createResults) {
+    if (result.status === "fulfilled") {
+      const { event, created } = result.value;
+      pendingInserts.push({
+        primary_calendar: sourceCalendarId,
+        primary_event_id: event.id,
+        secondary_calendar: targetCalendarId,
+        secondary_event_id: created.id,
+        event_summary: event.summary ?? "",
+        event_start: getDateString(event.start),
+        event_end: getDateString(event.end),
+        event_signature: computeSignature(event),
+      });
+      stats.created++;
+    } else {
       SolidActions.logger.error(
-        `Google API create failed for event ${event.id}: ${(apiError as Error).message}`,
+        `Google API create failed: ${result.reason}`,
       );
       stats.errors++;
     }
   }
 
-  // Process updates
-  for (const { event, dbRecord } of analysis.toUpdate) {
-    try {
+  // Process updates with concurrency
+  const updateResults = await processInBatches(
+    analysis.toUpdate,
+    CONCURRENCY,
+    async ({ event, dbRecord }) => {
       const eventBody = buildSyncedEventBody(event, prefix, sourceCalendarId);
       await updateEvent(
         calClient,
@@ -146,103 +171,99 @@ async function syncDirection(
         dbRecord.secondary_event_id,
         eventBody as calendar_v3.Schema$Event,
       );
+      return { event, dbRecord };
+    },
+  );
 
-      try {
-        const startStr =
-          event.start && "dateTime" in event.start
-            ? event.start.dateTime
-            : event.start && "date" in event.start
-              ? event.start.date
-              : "";
-        const endStr =
-          event.end && "dateTime" in event.end
-            ? event.end.dateTime
-            : event.end && "date" in event.end
-              ? event.end.date
-              : "";
-
-        await updateSyncedEvent(sheets, spreadsheetId, event.id, sourceCalendarId, {
-          event_signature: computeSignature(event),
-          event_summary: event.summary ?? "",
-          event_start: startStr,
-          event_end: endStr,
-        });
-        stats.updated++;
-      } catch (sheetError: unknown) {
-        SolidActions.logger.error(
-          `Sheet update failed for event ${event.id}: ${(sheetError as Error).message}`,
-        );
-        stats.errors++;
-      }
-    } catch (apiError: unknown) {
+  for (const result of updateResults) {
+    if (result.status === "fulfilled") {
+      const { event, dbRecord } = result.value;
+      pendingUpdates.push({
+        rowId: dbRecord.id,
+        primary_calendar: dbRecord.primary_calendar,
+        primary_event_id: dbRecord.primary_event_id,
+        secondary_calendar: dbRecord.secondary_calendar,
+        secondary_event_id: dbRecord.secondary_event_id,
+        event_summary: event.summary ?? "",
+        event_start: getDateString(event.start),
+        event_end: getDateString(event.end),
+        event_signature: computeSignature(event),
+        created_at: dbRecord.created_at,
+      });
+      stats.updated++;
+    } else {
       SolidActions.logger.error(
-        `Google API update failed for event ${event.id}: ${(apiError as Error).message}`,
+        `Google API update failed: ${result.reason}`,
       );
       stats.errors++;
     }
   }
 
-  return { stats, analysis };
+  return { stats, pendingInserts, pendingUpdates };
 }
 
 async function detectAndDeleteOrphans(
   calToken: string,
-  sheetToken: string,
-  spreadsheetId: string,
   eventsA: GoogleCalendarEvent[],
   eventsB: GoogleCalendarEvent[],
   syncedRecords: SyncedEventRecord[],
   calendarAId: string,
   calendarBId: string,
-): Promise<{ deleted: number; errors: number }> {
+): Promise<OrphanDetectionResult> {
   const calClient = getCalendarClient(calToken);
-  const sheets = getSheetClient(sheetToken);
   let deleted = 0;
   let errors = 0;
+  const pendingDeletes: PendingSheetDelete[] = [];
 
   // Build sets of current event IDs per calendar
   const calAEventIds = new Set(eventsA.map((e) => e.id));
   const calBEventIds = new Set(eventsB.map((e) => e.id));
 
-  for (const record of syncedRecords) {
-    let isOrphan = false;
-
+  // Identify orphans
+  const orphans = syncedRecords.filter((record) => {
     if (
       record.primary_calendar === calendarAId &&
       !calAEventIds.has(record.primary_event_id)
     ) {
-      isOrphan = true;
-    } else if (
+      return true;
+    }
+    if (
       record.primary_calendar === calendarBId &&
       !calBEventIds.has(record.primary_event_id)
     ) {
-      isOrphan = true;
+      return true;
     }
+    return false;
+  });
 
-    if (isOrphan) {
-      try {
-        await deleteEvent(
-          calClient,
-          record.secondary_calendar,
-          record.secondary_event_id,
-        );
-        await deleteSyncedEvent(
-          sheets,
-          spreadsheetId,
-          record.primary_event_id,
-          record.primary_calendar,
-        );
-        deleted++;
-      } catch (error: unknown) {
-        SolidActions.logger.error(
-          `Failed to delete orphan ${record.primary_event_id}: ${(error as Error).message}`,
-        );
-        errors++;
-      }
+  // Batch Calendar deletes with concurrency
+  const deleteResults = await processInBatches(
+    orphans,
+    CONCURRENCY,
+    async (record) => {
+      await deleteEvent(
+        calClient,
+        record.secondary_calendar,
+        record.secondary_event_id,
+      );
+      return record;
+    },
+  );
+
+  for (const result of deleteResults) {
+    if (result.status === "fulfilled") {
+      const record = result.value;
+      pendingDeletes.push({ rowId: record.id });
+      deleted++;
+    } else {
+      SolidActions.logger.error(
+        `Failed to delete orphan: ${result.reason}`,
+      );
+      errors++;
     }
   }
 
-  return { deleted, errors };
+  return { deleted, errors, pendingDeletes };
 }
 
 // --- Workflow Function ---
@@ -298,7 +319,7 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
       `Fetched ${eventsA.length} events from A, ${eventsB.length} from B`,
     );
 
-    // Step 2: Load synced records from sheet
+    // Step 2: Load synced records from sheet (single load for entire workflow)
     const syncedRecords = await SolidActions.runStep(
       () => loadSheetRecords(sheetToken, spreadsheetId),
       { name: "load-synced-records" },
@@ -306,13 +327,11 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
 
     SolidActions.logger.info(`Loaded ${syncedRecords.length} synced records`);
 
-    // Steps 3-4: Analyze and sync A -> B
-    const { stats: aToBStats } = await SolidActions.runStep(
+    // Step 3: Sync A -> B (Calendar API ops only, deferred Sheet writes)
+    const aToBResult = await SolidActions.runStep(
       () =>
         syncDirection(
           calToken,
-          sheetToken,
-          spreadsheetId,
           eventsA,
           syncedRecords,
           calendarAId,
@@ -322,21 +341,23 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
       { name: "sync-a-to-b" },
     );
 
-    // Steps 5-6: Analyze and sync B -> A
-    // Reload synced records to include newly created records from A->B
-    const updatedRecords = await SolidActions.runStep(
-      () => loadSheetRecords(sheetToken, spreadsheetId),
-      { name: "reload-synced-records" },
+    // Step 4: Batch write A->B Sheet changes
+    await SolidActions.runStep(
+      async () => {
+        const sheets = getSheetClient(sheetToken);
+        await batchInsertSyncedEvents(sheets, spreadsheetId, aToBResult.pendingInserts);
+        await batchUpdateSyncedEvents(sheets, spreadsheetId, aToBResult.pendingUpdates);
+      },
+      { name: "batch-write-a-to-b" },
     );
 
-    const { stats: bToAStats } = await SolidActions.runStep(
+    // Step 5: Sync B -> A (same syncedRecords — no reload needed)
+    const bToAResult = await SolidActions.runStep(
       () =>
         syncDirection(
           calToken,
-          sheetToken,
-          spreadsheetId,
           eventsB,
-          updatedRecords,
+          syncedRecords,
           calendarBId,
           calendarAId,
           calendarBPrefix,
@@ -344,36 +365,57 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
       { name: "sync-b-to-a" },
     );
 
-    // Step 7: Detect and delete orphans
-    // Reload synced records again for accurate orphan detection
-    const finalRecords = await SolidActions.runStep(
-      () => loadSheetRecords(sheetToken, spreadsheetId),
-      { name: "reload-synced-records-for-orphans" },
+    // Step 6: Batch write B->A Sheet changes
+    await SolidActions.runStep(
+      async () => {
+        const sheets = getSheetClient(sheetToken);
+        await batchInsertSyncedEvents(sheets, spreadsheetId, bToAResult.pendingInserts);
+        await batchUpdateSyncedEvents(sheets, spreadsheetId, bToAResult.pendingUpdates);
+      },
+      { name: "batch-write-b-to-a" },
     );
 
-    const deletionStats = await SolidActions.runStep(
+    // Step 7: Detect and delete orphans (Calendar API ops only)
+    const orphanResult = await SolidActions.runStep(
       () =>
         detectAndDeleteOrphans(
           calToken,
-          sheetToken,
-          spreadsheetId,
           eventsA,
           eventsB,
-          finalRecords,
+          syncedRecords,
           calendarAId,
           calendarBId,
         ),
       { name: "detect-and-delete-orphans" },
     );
 
-    // Step 8: Log summary
+    // Step 8: Batch delete orphan rows from Sheet
+    await SolidActions.runStep(
+      async () => {
+        const sheets = getSheetClient(sheetToken);
+        const sheetId = await getSheetId(sheets, spreadsheetId);
+        await batchDeleteSyncedEventRows(
+          sheets,
+          spreadsheetId,
+          sheetId,
+          orphanResult.pendingDeletes.map((d) => d.rowId),
+        );
+      },
+      { name: "batch-delete-orphan-rows" },
+    );
+
+    // Step 9: Log summary
+    const aToBStats = aToBResult.stats;
+    const bToAStats = bToAResult.stats;
+    const deletionStats = { deleted: orphanResult.deleted, errors: orphanResult.errors };
+
     const output: SyncOutput = {
       aToBStats,
       bToAStats,
       deletionStats,
       eventsA: eventsA.length,
       eventsB: eventsB.length,
-      sheetRecords: finalRecords.length,
+      sheetRecords: syncedRecords.length,
     };
 
     await SolidActions.runStep(
@@ -392,6 +434,24 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
       },
       { name: "log-summary" },
     );
+
+    // Step 10: Notify on errors
+    const totalErrors = aToBStats.errors + bToAStats.errors + deletionStats.errors;
+    if (totalErrors > 0 && telegramBotToken && telegramChatId) {
+      await SolidActions.runStep(
+        () =>
+          sendTelegramError(
+            telegramBotToken,
+            telegramChatId,
+            `*Calendar Sync Completed with Errors*\n\n` +
+            `A→B: ${aToBStats.created} created, ${aToBStats.updated} updated, ${aToBStats.errors} errors\n` +
+            `B→A: ${bToAStats.created} created, ${bToAStats.updated} updated, ${bToAStats.errors} errors\n` +
+            `Orphans: ${deletionStats.deleted} deleted, ${deletionStats.errors} errors\n\n` +
+            `Total errors: *${totalErrors}*`,
+          ),
+        { name: "notify-errors-summary" },
+      );
+    }
 
     return output;
   } catch (error: unknown) {

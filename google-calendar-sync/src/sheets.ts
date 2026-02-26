@@ -4,7 +4,7 @@
  */
 
 import { google, sheets_v4 } from "googleapis";
-import type { SyncedEventRecord } from "./types.js";
+import type { SyncedEventRecord, PendingSheetInsert, PendingSheetUpdate } from "./types.js";
 
 const SHEET_NAME = "synced_events";
 const HEADERS = [
@@ -177,6 +177,112 @@ export async function deleteSyncedEvent(
         },
       ],
     },
+  });
+}
+
+/** Get the numeric sheet ID for the synced_events sheet. */
+export async function getSheetId(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+): Promise<number> {
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = spreadsheet.data.sheets?.find(
+    (s) => s.properties?.title === SHEET_NAME,
+  );
+  return sheet?.properties?.sheetId ?? 0;
+}
+
+/** Batch insert multiple synced event records in a single append call. */
+export async function batchInsertSyncedEvents(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  records: PendingSheetInsert[],
+): Promise<void> {
+  if (records.length === 0) return;
+
+  const now = new Date().toISOString();
+  const values = records.map((r) => [
+    r.primary_calendar,
+    r.primary_event_id,
+    r.secondary_calendar,
+    r.secondary_event_id,
+    r.event_summary,
+    r.event_start,
+    r.event_end,
+    r.event_signature,
+    now,
+    now,
+    now,
+  ]);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${SHEET_NAME}!A:K`,
+    valueInputOption: "RAW",
+    requestBody: { values },
+  });
+}
+
+/** Batch update multiple synced event records in a single batchUpdate call. */
+export async function batchUpdateSyncedEvents(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  updates: PendingSheetUpdate[],
+): Promise<void> {
+  if (updates.length === 0) return;
+
+  const now = new Date().toISOString();
+  const data = updates.map((u) => ({
+    range: `${SHEET_NAME}!A${u.rowId}:K${u.rowId}`,
+    values: [
+      [
+        u.primary_calendar,
+        u.primary_event_id,
+        u.secondary_calendar,
+        u.secondary_event_id,
+        u.event_summary,
+        u.event_start,
+        u.event_end,
+        u.event_signature,
+        u.created_at,
+        now,
+        now,
+      ],
+    ],
+  }));
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: "RAW", data },
+  });
+}
+
+/** Batch delete rows by index in a single batchUpdate call. Deletes in reverse order. */
+export async function batchDeleteSyncedEventRows(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  sheetId: number,
+  rowIds: number[],
+): Promise<void> {
+  if (rowIds.length === 0) return;
+
+  // Sort descending to avoid index shifting
+  const sorted = [...rowIds].sort((a, b) => b - a);
+
+  const requests = sorted.map((rowId) => ({
+    deleteDimension: {
+      range: {
+        sheetId,
+        dimension: "ROWS" as const,
+        startIndex: rowId - 1, // 0-indexed
+        endIndex: rowId, // exclusive
+      },
+    },
+  }));
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
   });
 }
 

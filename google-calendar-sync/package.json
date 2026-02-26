@@ -6,7 +6,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@solidactions/sdk": "^0.1.1",
+    "@solidactions/sdk": "^0.2.0",
     "googleapis": "^143.0.0"
   },
   "devDependencies": {
