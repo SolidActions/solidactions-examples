@@ -597,11 +597,11 @@ solidactions env:set API_KEY "secret123" --secret
 solidactions env:set my-project CUSTOM_VAR "my-value"
 solidactions env:set my-project DB_HOST "prod-db.example.com" --env production
 
-# Create a global variable with per-environment values (env:create only)
-solidactions env:create DB_URL "prod-url" --staging-value "staging-url" --dev-value "dev-url"
+# Set a global variable with per-environment values (global mode only)
+solidactions env:set DB_URL "prod-url" --staging-value "staging-url" --dev-value "dev-url"
 
-# Create with environment inheritance (env:create only)
-solidactions env:create MY_VAR "prod-value" --staging-inherit --dev-inherit-staging
+# Set with environment inheritance (global mode only)
+solidactions env:set MY_VAR "prod-value" --staging-inherit --dev-inherit-staging
 
 # List global variables
 solidactions env:list

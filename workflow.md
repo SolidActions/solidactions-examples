@@ -18,7 +18,7 @@ graph TD
     end
 
     subgraph Test["Phase 3: Test"]
-        T1["Build: npm run build"] --> T2["Push env vars to SolidActions:<br/>env:create / env:map"]
+        T1["Build: npm run build"] --> T2["Push env vars to SolidActions:<br/>env:set / env:map"]
         T2 --> T3["Deploy to dev:<br/>solidactions deploy my-project --env dev"]
         T3 --> T4["Test on SolidActions:<br/>solidactions run my-project my-workflow -w"]
         T4 --> T5["Check logs:<br/>solidactions logs &lt;run-id&gt;"]
@@ -54,7 +54,7 @@ graph TD
 ### Phase 3: Test
 
 1. **Build** — `npm run build` to verify TypeScript compiles cleanly
-2. **Push env vars** — Use `solidactions env:create` and `solidactions env:map` to set up variables on the platform
+2. **Push env vars** — Use `solidactions env:set` and `solidactions env:map` to set up variables on the platform
 3. **Deploy to dev** — `solidactions deploy my-project --env dev --create`
 4. **Test remotely** — `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
 5. **Check logs** — `solidactions runs my-project` then `solidactions logs <run-id>`
