@@ -8,7 +8,7 @@ Every SolidActions project follows this layout:
 
 ```
 my-project/
-├── package.json          # Dependencies: @solidactions/sdk ^0.1.1
+├── package.json          # Dependencies: @solidactions/sdk
 ├── solidactions.yaml     # Workflow definitions
 ├── tsconfig.json         # TypeScript config (ES2022, NodeNext)
 ├── .env                  # Local environment variables (not committed)
@@ -27,7 +27,7 @@ my-project/
     "build": "tsc"
   },
   "dependencies": {
-    "@solidactions/sdk": "^0.2.0"
+    "@solidactions/sdk": "^0.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -553,7 +553,7 @@ solidactions dev src/my-workflow.ts
 solidactions dev src/my-workflow.ts -i '{"key": "value"}'
 ```
 
-Requires `@solidactions/sdk` v0.2.0+ installed in the project.
+Requires `@solidactions/sdk` installed in the project.
 
 ### Running Workflows
 

@@ -46,7 +46,7 @@ graph TD
 
 ### Phase 2: Develop
 
-1. **Create config files** — `package.json` (with `@solidactions/sdk ^0.1.1`), `tsconfig.json` (ES2022/NodeNext), `solidactions.yaml` (workflow definitions)
+1. **Create config files** — `package.json` (with `@solidactions/sdk`), `tsconfig.json` (ES2022/NodeNext), `solidactions.yaml` (workflow definitions)
 2. **Install dependencies** — `npm install`
 3. **Write workflows** — TypeScript files in `src/` following the patterns in CLAUDE.md
 4. **Configure environment** — Add API keys and secrets to `.env` for local development
