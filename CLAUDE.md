@@ -504,8 +504,11 @@ npm install -g @solidactions/cli
 ### Authentication
 
 ```bash
-# Initialize with API key (get from SolidActions UI)
+# Initialize with API key (prompts for workspace selection)
 solidactions init <api-key>
+
+# Initialize and set workspace directly (no prompt)
+solidactions init <api-key> --workspace <name-or-id>
 
 # Check current auth
 solidactions whoami
@@ -513,6 +516,18 @@ solidactions whoami
 # Remove credentials
 solidactions logout
 ```
+
+### Workspace Management
+
+```bash
+# List all workspaces
+solidactions workspaces
+
+# Change active workspace
+solidactions workspace:set <name-or-id>
+```
+
+All API calls send an `X-Workspace-Id` header to scope requests to the active workspace.
 
 ### Deploying Projects
 
@@ -695,7 +710,7 @@ Variables are resolved at runtime and injected into the Docker container. Workfl
 2. Copy CLAUDE.md (this file) into the project or parent directory
 3. Install the CLI: `npm install -g @solidactions/cli`
 4. Get your API key from the SolidActions UI
-5. Initialize: `solidactions init <api-key>`
+5. Initialize: `solidactions init <api-key>` (select a workspace when prompted, or use `--workspace <name-or-id>`)
 
 ### Phase 2: Develop
 

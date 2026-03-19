@@ -13,7 +13,7 @@ Working examples for [SolidActions](https://solidactions.com) workflow automatio
 # Install the CLI
 npm install -g @solidactions/cli
 
-# Initialize with your API key
+# Initialize with your API key (prompts for workspace selection)
 solidactions init <your-api-key>
 
 # Try the hello-world example
