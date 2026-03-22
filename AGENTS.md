@@ -521,10 +521,10 @@ solidactions logout
 
 ```bash
 # List all workspaces
-solidactions workspaces
+solidactions workspace list
 
 # Change active workspace
-solidactions workspace:set <name-or-id>
+solidactions workspace set <name-or-id>
 ```
 
 All API calls send an `X-Workspace-Id` header to scope requests to the active workspace.
@@ -533,14 +533,14 @@ All API calls send an `X-Workspace-Id` header to scope requests to the active wo
 
 ```bash
 # Deploy from current directory
-solidactions deploy my-project
+solidactions project deploy my-project
 
 # Deploy from a specific path (recommended to avoid deploying wrong directory)
-solidactions deploy my-project ./path/to/project
+solidactions project deploy my-project ./path/to/project
 
 # Deploy to staging or production
-solidactions deploy my-project ./path/to/project --env staging --create
-solidactions deploy my-project ./path/to/project --env production
+solidactions project deploy my-project ./path/to/project --env staging --create
+solidactions project deploy my-project ./path/to/project --env production
 ```
 
 The `[path]` argument is optional (defaults to current directory), but specifying it is recommended to avoid accidentally deploying a large directory.
@@ -551,13 +551,13 @@ Each project folder is deployed independently. Imports/references are intra-proj
 
 ```bash
 # List webhook URLs for a project
-solidactions webhooks my-project
+solidactions webhook list my-project
 
 # List webhooks for a specific environment
-solidactions webhooks my-project --env staging
+solidactions webhook list my-project --env staging
 
 # Show webhook secrets
-solidactions webhooks my-project --show-secrets
+solidactions webhook list my-project --show-secrets
 ```
 
 ### Local Development
@@ -574,101 +574,98 @@ Requires `@solidactions/sdk` installed in the project.
 
 ```bash
 # Trigger a workflow
-solidactions run my-project my-workflow
+solidactions run start my-project my-workflow
 
 # With JSON input
-solidactions run my-project my-workflow -i '{"name": "Alice"}'
+solidactions run start my-project my-workflow -i '{"name": "Alice"}'
 
 # Wait for completion
-solidactions run my-project my-workflow -w
+solidactions run start my-project my-workflow -w
 ```
 
 ### Viewing Runs and Logs
 
 ```bash
 # List recent runs
-solidactions runs my-project
+solidactions run list my-project
 
 # View logs for a run
-solidactions logs <run-id>
-
-# Follow logs in real-time
-solidactions logs <run-id> -f
+solidactions run view <run-id> --logs
 
 # View build/deploy logs
-solidactions logs:build my-project
+solidactions project logs my-project
 ```
 
 ### Environment Variables
 
 ```bash
 # Set a global variable (create or update)
-solidactions env:set MY_VAR "my-value"
+solidactions env set MY_VAR "my-value"
 
 # Set a global secret
-solidactions env:set API_KEY "secret123" --secret
+solidactions env set API_KEY "secret123" --secret
 
 # Set a project variable directly (create or update)
-solidactions env:set my-project CUSTOM_VAR "my-value"
-solidactions env:set my-project DB_HOST "prod-db.example.com" --env production
+solidactions env set my-project CUSTOM_VAR "my-value"
+solidactions env set my-project DB_HOST "prod-db.example.com" --env production
 
 # Set a global variable with per-environment values (global mode only)
-solidactions env:set DB_URL "prod-url" --staging-value "staging-url" --dev-value "dev-url"
+solidactions env set DB_URL "prod-url" --staging-value "staging-url" --dev-value "dev-url"
 
 # Set with environment inheritance (global mode only)
-solidactions env:set MY_VAR "prod-value" --staging-inherit --dev-inherit-staging
+solidactions env set MY_VAR "prod-value" --staging-inherit --dev-inherit-staging
 
 # List global variables
-solidactions env:list
+solidactions env list
 
 # List project variable mappings
-solidactions env:list my-project
+solidactions env list my-project
 
 # List for a specific environment
-solidactions env:list my-project --env staging
+solidactions env list my-project --env staging
 
 # Map a global variable to a project key
-solidactions env:map my-project LOCAL_NAME GLOBAL_KEY
+solidactions env map my-project LOCAL_NAME GLOBAL_KEY
 
 # Pull env vars for local development (includes fresh OAuth tokens)
-solidactions env:pull my-project
-solidactions env:pull my-project --env staging
-solidactions env:pull my-project --env staging --output .env.staging
+solidactions env pull my-project
+solidactions env pull my-project --env staging
+solidactions env pull my-project --env staging --output .env.staging
 
 # Quick refresh of only OAuth tokens (merges into existing .env)
-solidactions env:pull my-project --update-oauth
+solidactions env pull my-project --update-oauth
 
 # Push .env values from a .env file to a project
-solidactions env:push my-project
-solidactions env:push my-project ./my-app --env production
-solidactions env:push my-project --new-only       # Only push new/empty vars
-solidactions env:push my-project --include-undeclared  # Push all vars, even if not in YAML
+solidactions env push my-project
+solidactions env push my-project ./my-app --env production
+solidactions env push my-project --new-only       # Only push new/empty vars
+solidactions env push my-project --include-undeclared  # Push all vars, even if not in YAML
 
 # Delete a variable
-solidactions env:delete MY_VAR --yes
-solidactions env:delete my-project MY_VAR --yes
+solidactions env delete MY_VAR --yes
+solidactions env delete my-project MY_VAR --yes
 ```
 
 ### Schedules
 
 ```bash
 # Set a cron schedule
-solidactions schedule:set my-project "0 9 * * *" --workflow my-workflow
+solidactions schedule set my-project "0 9 * * *" --workflow my-workflow
 
 # Set with JSON input
-solidactions schedule:set my-project "0 9 * * *" --workflow my-workflow -i '{"key": "value"}'
+solidactions schedule set my-project "0 9 * * *" --workflow my-workflow -i '{"key": "value"}'
 
 # List schedules
-solidactions schedule:list my-project
+solidactions schedule list my-project
 
 # Delete a schedule
-solidactions schedule:delete my-project <schedule-id> --yes
+solidactions schedule delete my-project <schedule-id> --yes
 ```
 
 ### Download Project Source
 
 ```bash
-solidactions pull my-project ./backup
+solidactions project pull my-project ./backup
 ```
 
 ---
@@ -679,13 +676,13 @@ SolidActions supports three environments: **dev** (default), **staging**, and **
 
 ```bash
 # Deploy to dev (default)
-solidactions deploy my-project ./path/to/project
+solidactions project deploy my-project ./path/to/project
 
 # Deploy to staging (creates project if --create flag)
-solidactions deploy my-project ./path/to/project --env staging --create
+solidactions project deploy my-project ./path/to/project --env staging --create
 
 # Deploy to production
-solidactions deploy my-project ./path/to/project --env production
+solidactions project deploy my-project ./path/to/project --env production
 ```
 
 ### Environment Variable Inheritance
@@ -730,7 +727,7 @@ solidactions dev src/my-workflow.ts -i '{"key": "value"}'
 
 This starts an in-memory mock server that implements the full SolidActions API, so all step execution works normally. Use this for fast iteration on workflow logic.
 
-To use real OAuth tokens locally, run `solidactions env:pull my-project` first. The `.env` file will contain fresh access tokens that your workflow can access via `process.env`. Re-run with `--update-oauth` when tokens expire.
+To use real OAuth tokens locally, run `solidactions env pull my-project` first. The `.env` file will contain fresh access tokens that your workflow can access via `process.env`. Re-run with `--update-oauth` when tokens expire.
 
 **What works locally:** Sequential & parallel steps, child workflows, events, streams, retries.
 
@@ -738,15 +735,15 @@ To use real OAuth tokens locally, run `solidactions env:pull my-project` first. 
 
 ### Phase 4: Deploy & Test on Platform
 
-1. Deploy to dev (default): `solidactions deploy my-project`
-2. Push env vars from local `.env`: `solidactions env:push my-project`
-3. Test: `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
-4. Check logs: `solidactions runs my-project` then `solidactions logs <run-id>`
+1. Deploy to dev (default): `solidactions project deploy my-project`
+2. Push env vars from local `.env`: `solidactions env push my-project`
+3. Test: `solidactions run start my-project my-workflow -i '{"key": "value"}' -w`
+4. Check logs: `solidactions run list my-project` then `solidactions run view <run-id> --logs`
 
 ### Phase 5: Deploy to Production
 
 1. Set up production env vars in SolidActions UI or CLI
-2. Deploy: `solidactions deploy my-project --env production`
+2. Deploy: `solidactions project deploy my-project --env production`
 3. Verify in SolidActions UI
 
 ---

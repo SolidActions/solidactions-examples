@@ -18,14 +18,14 @@ graph TD
     end
 
     subgraph Test["Phase 3: Test"]
-        T1["Build: npm run build"] --> T2["Push env vars to SolidActions:<br/>env:set / env:map"]
-        T2 --> T3["Deploy to dev:<br/>solidactions deploy my-project --env dev"]
-        T3 --> T4["Test on SolidActions:<br/>solidactions run my-project my-workflow -w"]
-        T4 --> T5["Check logs:<br/>solidactions logs &lt;run-id&gt;"]
+        T1["Build: npm run build"] --> T2["Push env vars to SolidActions:<br/>env set / env map"]
+        T2 --> T3["Deploy to dev:<br/>solidactions project deploy my-project --env dev"]
+        T3 --> T4["Test on SolidActions:<br/>solidactions run start my-project my-workflow -w"]
+        T4 --> T5["Check logs:<br/>solidactions run view &lt;run-id&gt; --logs"]
     end
 
     subgraph Deploy["Phase 4: Deploy"]
-        P1[Set up production env vars] --> P2["Deploy to production:<br/>solidactions deploy my-project"]
+        P1[Set up production env vars] --> P2["Deploy to production:<br/>solidactions project deploy my-project"]
         P2 --> P3[Verify in SolidActions UI]
     end
 
@@ -54,13 +54,13 @@ graph TD
 ### Phase 3: Test
 
 1. **Build** — `npm run build` to verify TypeScript compiles cleanly
-2. **Push env vars** — Use `solidactions env:set` and `solidactions env:map` to set up variables on the platform
-3. **Deploy to dev** — `solidactions deploy my-project --env dev --create`
-4. **Test remotely** — `solidactions run my-project my-workflow -i '{"key": "value"}' -w`
-5. **Check logs** — `solidactions runs my-project` then `solidactions logs <run-id>`
+2. **Push env vars** — Use `solidactions env set` and `solidactions env map` to set up variables on the platform
+3. **Deploy to dev** — `solidactions project deploy my-project --env dev --create`
+4. **Test remotely** — `solidactions run start my-project my-workflow -i '{"key": "value"}' -w`
+5. **Check logs** — `solidactions run list my-project` then `solidactions run view <run-id> --logs`
 
 ### Phase 4: Deploy
 
 1. **Production env vars** — Ensure all required variables are set for production
-2. **Deploy** — `solidactions deploy my-project` (defaults to production)
+2. **Deploy** — `solidactions project deploy my-project` (defaults to production)
 3. **Verify** — Check the SolidActions UI for successful deployment and workflow status
