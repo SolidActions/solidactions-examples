@@ -796,9 +796,9 @@ Variables are resolved at runtime and injected into the Docker container. Workfl
 
 ---
 
-## New Project Workflow
+## New Project Workflow (Local Dev → Staging → Production)
 
-This is the recommended workflow for creating a new SolidActions project from scratch using the CLI.
+The recommended workflow for developers. Fast local iteration with `solidactions dev`, then deploy through staging to production. Env vars are configured in all environments.
 
 ### Step 1: Scaffold the project
 
@@ -826,60 +826,49 @@ env:
   - WEBHOOK_SECRET: GLOBAL_SECRET_KEY  # Mapped from global variable
 ```
 
-### Step 3: Deploy config to register env vars
+### Step 3: Register env vars in all environments
+
+Push config to create the project and register env declarations — no code deployed yet:
 
 ```bash
-# Deploy to register the project and sync env declarations (no build needed yet)
+# Register in production (creates the project)
 solidactions project deploy my-project . --env production --config-only
+
+# Register in staging
+solidactions project deploy my-project . --env staging --create --config-only
 ```
 
-This creates the project in SolidActions and registers the env vars from your YAML. No code is uploaded or built.
+### Step 4: User configures secrets and OAuth in each environment
 
-### Step 4: User configures secrets and OAuth
+The user sets up env vars for each environment via the SolidActions UI or CLI:
 
-The user now goes to the SolidActions UI (or uses the CLI) to:
-- Connect OAuth apps (e.g., Slack) — the platform manages token refresh
-- Map global variables (e.g., `GLOBAL_SECRET_KEY` → `WEBHOOK_SECRET`)
-- Set project-specific values (e.g., `DATABASE_URL`)
-
+**Staging** — sandbox/test credentials:
 ```bash
-# Or via CLI:
-solidactions env set API_KEY "sk-..." --secret          # Global secret
-solidactions env set my-project DATABASE_URL "postgres://..." --env production -y
+solidactions env set my-project API_KEY "sk-test-..." --env staging -y
+solidactions env set my-project DATABASE_URL "postgres://staging-db/..." --env staging -y
 ```
+
+**Production** — real credentials:
+```bash
+solidactions env set my-project API_KEY "sk-live-..." --env production -y
+solidactions env set my-project DATABASE_URL "postgres://prod-db/..." --env production -y
+```
+
+OAuth connections (e.g., Slack) are configured per-environment in the UI — the platform manages token refresh automatically.
 
 ### Step 5: Pull env vars for local development
 
 ```bash
-# Pull all resolved values (including fresh OAuth tokens) into .env
-solidactions env pull my-project --env production
+# Pull staging values into .env for local use (safer than pulling prod secrets)
+solidactions env pull my-project --env staging
 
-# Result: .env file with all vars ready for local use
-cat .env
-# API_KEY=sk-...
-# DATABASE_URL=postgres://...
-# SLACK_TOKEN=xoxb-fresh-token-here
-# WEBHOOK_SECRET=the-global-secret-value
+# Or pull production if needed
+solidactions env pull my-project --env production
 ```
 
 ### Step 6: Write code and test locally
 
 ```bash
-# Write your workflow
-mkdir src && cat > src/my-workflow.ts << 'EOF'
-import { SolidActions } from "@solidactions/sdk";
-
-const sa = new SolidActions();
-const workflow = sa.workflow("my-workflow", async (step) => {
-  const data = await step.run("fetch-data", async () => {
-    // process.env.API_KEY is available here
-    return { fetched: true };
-  });
-  return data;
-});
-export default workflow;
-EOF
-
 # Test locally with the in-memory mock server (reads .env automatically)
 solidactions dev src/my-workflow.ts -i '{"key": "value"}'
 ```
@@ -888,34 +877,31 @@ solidactions dev src/my-workflow.ts -i '{"key": "value"}'
 
 **What doesn't (no-ops locally):** Durable sleep scheduler wakeups, cross-process messaging.
 
-### Step 7: Deploy and test on the platform
+### Step 7: Deploy to staging and test with real infrastructure
 
 ```bash
-# Full deploy (uploads source, builds container, deploys)
-solidactions project deploy my-project . --env production
+# Deploy to staging
+solidactions project deploy my-project . --env staging
 
-# Trigger a test run and wait for completion
-solidactions run start my-project my-workflow --env production -w
+# Test with staging credentials on real infrastructure
+solidactions run start my-project my-workflow --env staging -w
 
-# Check the result
-solidactions run list my-project --status completed --since 5m
+# Check results
 solidactions run view <run-id>
 solidactions run view <run-id> --logs    # if something went wrong
 ```
 
-### Step 8 (optional): Push local env vars to dev environment
+Iterate here until the workflow works with real API calls, real databases, real OAuth tokens.
 
-If your local `.env` has dev-specific values different from production, push them to the dev environment so the platform uses them too:
+### Step 8: Deploy to production
 
 ```bash
-# Deploy to dev environment (creates it if needed)
-solidactions project deploy my-project . --env dev --create
+# Deploy the same code to production
+solidactions project deploy my-project . --env production
 
-# Push your local .env values to the dev environment
-solidactions env push my-project . --env dev
-
-# Now dev runs use the same env vars as your local setup
-solidactions run start my-project my-workflow --env dev -w
+# Verify
+solidactions run start my-project my-workflow --env production -w
+solidactions run view <run-id>
 ```
 
 ### Refreshing OAuth tokens
@@ -929,15 +915,13 @@ solidactions env pull my-project --update-oauth
 
 ---
 
-## New Project Workflow (Remote-Only Env Vars)
+## New Project Workflow (Remote-Only — No Local Secrets)
 
-Use this workflow when the user wants to keep secrets and tokens **off their local machine**. No `.env` file is created locally — all env vars live only on the SolidActions platform. Code is tested by deploying to a dev environment, not with `solidactions dev`.
+Use this workflow when secrets should **never touch the local machine**. No `.env` file is created. Code is tested by deploying to a dev environment on the platform.
 
-This is the recommended workflow for non-technical users or teams with strict credential policies.
+Ideal for AI-only tools (Claude Cowork, OpenClaw, etc.) that only need a CLI API key to get started, and for non-technical users or teams with strict credential policies.
 
 ### Step 1: Scaffold and create solidactions.yaml
-
-Same as the standard workflow — create the project structure and declare workflows + env vars:
 
 ```bash
 mkdir my-project && cd my-project
@@ -965,42 +949,20 @@ env:
 Register env vars in both environments so the user can configure each one:
 
 ```bash
-# Register the project + env declarations in dev
+# Register in dev (for testing)
 solidactions project deploy my-project . --env dev --create --config-only
 
-# Also register in production so the user can set up prod secrets too
+# Register in production (for the user to set up real credentials)
 solidactions project deploy my-project . --env production --config-only
 ```
 
-The user now has two environments to configure. This helps them understand:
-- **Dev** — safe to experiment, test with sandbox API keys
+The user now has two environments to configure:
+- **Dev** — safe to experiment, use sandbox API keys
 - **Production** — real credentials, real data
 
-### Step 3: User configures env vars in both environments
+### Step 3: User configures env vars (AI writes code in parallel)
 
-The user goes to the SolidActions UI and sets up each environment:
-
-**Dev environment:**
-- Connect sandbox/test OAuth apps
-- Set test API keys and database URLs
-- Map global dev variables
-
-**Production environment:**
-- Connect production OAuth apps
-- Set production API keys and database URLs
-- Map global production variables
-
-```bash
-# Or the AI can help via CLI:
-solidactions env set my-project API_KEY "sk-test-..." --env dev -y
-solidactions env set my-project API_KEY "sk-live-..." --env production -y
-solidactions env set my-project DATABASE_URL "postgres://dev-db/..." --env dev -y
-solidactions env set my-project DATABASE_URL "postgres://prod-db/..." --env production -y
-```
-
-### Step 4: Write code (while user configures envs)
-
-The AI writes workflow code in parallel — no env vars needed locally since we're not running `solidactions dev`. Code just references `process.env` and trusts the platform to inject values at runtime:
+The user sets up secrets and OAuth connections in the UI while the AI writes code. The AI doesn't need env vars locally — code just references `process.env` and trusts the platform to inject values at runtime:
 
 ```typescript
 import { SolidActions } from "@solidactions/sdk";
@@ -1019,7 +981,7 @@ const workflow = sa.workflow("my-workflow", async (step) => {
 export default workflow;
 ```
 
-### Step 5: Deploy to dev and test
+### Step 4: Deploy to dev and test
 
 ```bash
 # Full deploy to dev (builds container, deploys code)
@@ -1035,28 +997,26 @@ solidactions run view <run-id> --logs    # if something went wrong
 
 If the run fails, check logs, fix the code, redeploy. Iterate until it works in dev.
 
-### Step 6: Deploy to production
+### Step 5: Deploy to production
 
 Once dev is working:
 
 ```bash
-# Deploy the same code to production
 solidactions project deploy my-project . --env production
-
-# Test in production
 solidactions run start my-project my-workflow --env production -w
 solidactions run view <run-id>
 ```
 
 ### When to use which workflow
 
-| | Standard (local .env) | Remote-only |
+| | Local Dev (standard) | Remote-Only |
 |---|---|---|
-| **Env vars stored** | In `.env` on disk | Only on SolidActions platform |
-| **Local testing** | `solidactions dev` (fast, instant) | Not used — test via deploy to dev env |
-| **Iteration speed** | Fastest (no deploy needed) | Slower (deploy per change) |
+| **Env vars** | Pulled to local `.env` | Only on the platform |
+| **Local testing** | `solidactions dev` (fast, instant) | Not used — deploy to dev env |
+| **Iteration speed** | Fastest (no deploy per change) | Slower (deploy per change) |
 | **Security** | Secrets on disk | Secrets never leave the platform |
-| **Best for** | AI agents, developers comfortable with secrets locally | Non-technical users, strict credential policies, regulated teams |
+| **Best for** | Developers, fast iteration | AI tools (Cowork, OpenClaw), non-technical users, regulated teams |
+| **AI needs** | CLI API key + pulled .env | CLI API key only |
 
 ---
 
