@@ -541,9 +541,14 @@ solidactions project deploy my-project ./path/to/project
 # Deploy to staging or production
 solidactions project deploy my-project ./path/to/project --env staging --create
 solidactions project deploy my-project ./path/to/project --env production
+
+# Sync env variable declarations from solidactions.yaml without rebuilding
+solidactions project deploy my-project ./path/to/project --config-only
 ```
 
 The `[path]` argument is optional (defaults to current directory), but specifying it is recommended to avoid accidentally deploying a large directory.
+
+`--config-only` syncs YAML env declarations without uploading source or triggering a build. Use this to map env vars and pull them for local development without a full redeploy.
 
 Each project folder is deployed independently. Imports/references are intra-project only. Cross-project communication uses webhooks or messaging.
 
@@ -586,11 +591,31 @@ solidactions run start my-project my-workflow -w
 ### Viewing Runs and Logs
 
 ```bash
-# List recent runs
+# List recent runs (human-readable table)
 solidactions run list my-project
 
-# View logs for a run
-solidactions run view <run-id> --logs
+# List as JSON (for scripting/AI)
+solidactions run list my-project --json
+
+# Filter runs
+solidactions run list --status failed --since 1h
+solidactions run list --status completed --workflow my-workflow --limit 10
+solidactions run list --limit 20 --offset 20              # pagination
+
+# Bulk detail — timeline, steps, and logs in one call (default: 5 runs)
+solidactions run list --status failed --detailed --json
+
+# Inspect a single run (human-readable by default)
+solidactions run view <run-id>
+
+# Machine-readable JSON
+solidactions run view <run-id> --json
+
+# Focused views
+solidactions run view <run-id> --timeline          # just timing data
+solidactions run view <run-id> --steps             # just step table
+solidactions run view <run-id> --logs              # raw log output
+solidactions run view <run-id> --steps --json      # steps as JSON array
 
 # View build/deploy logs
 solidactions project logs my-project
@@ -666,6 +691,7 @@ solidactions schedule delete my-project <schedule-id> --yes
 
 ```bash
 solidactions project pull my-project ./backup
+solidactions project pull my-project ./backup -y   # skip overwrite confirmation
 ```
 
 ---
@@ -696,6 +722,77 @@ Global variables can have per-environment values with an inheritance chain:
 | **Dev** | Uses dev value if set, otherwise inherits from staging or production |
 
 Variables are resolved at runtime and injected into the Docker container. Workflow code accesses them via `process.env`.
+
+---
+
+## AI Monitoring & Automation
+
+The CLI is designed for AI agents to monitor and manage workflows programmatically. Use `--json` on any command for machine-readable output.
+
+### Quick Health Check
+
+```bash
+# Any failures in the last hour?
+solidactions run list --status failed --since 1h --json
+
+# Empty array = all clear. Non-empty = investigate.
+```
+
+### Investigate Failures
+
+```bash
+# Get full detail on recent failures (timeline, steps, logs) in one call
+solidactions run list --status failed --since 1h --detailed --json --limit 10
+
+# Deep dive on a specific run
+solidactions run view <run-id> --json        # full structured data
+solidactions run view <run-id> --logs        # raw logs for error analysis
+solidactions run view <run-id> --steps --json # step timing for bottleneck analysis
+```
+
+### Common Failure Patterns
+
+When analyzing `--detailed --json` output, look for:
+
+| Pattern | Indicator | Likely Cause |
+|---------|-----------|-------------|
+| No session, status=failed | `session_status: null` | Dispatch failure (queue/infra) |
+| Session started, no steps | `steps: []`, logs have errors | SDK initialization failure |
+| Some steps completed | Steps stop mid-workflow | Runtime error in workflow code |
+| All steps done, status=ERROR | Steps OK but exit_code=1 | Post-execution failure |
+| "fetch failed" in logs | Network errors with retries | Tunnel/connectivity issue |
+
+### Monitoring Loop (for scheduled AI agents)
+
+```bash
+# 1. Check for failures
+FAILURES=$(solidactions run list --status failed --since 5m --json)
+
+# 2. If failures exist, get details
+if [ "$FAILURES" != "[]" ]; then
+  solidactions run list --status failed --since 5m --detailed --json
+fi
+
+# 3. Check overall health — recent successful runs exist?
+solidactions run list --status completed --since 1h --json --limit 5
+
+# 4. List all projects to verify deployments
+solidactions project list
+```
+
+### Redeploy After Fixes
+
+```bash
+# Sync env config without rebuilding (fast)
+solidactions project deploy my-project ./path --env production --config-only
+
+# Full redeploy after code changes
+solidactions project deploy my-project ./path --env production
+
+# Verify the deploy worked
+solidactions run start my-project my-workflow --env production -w
+solidactions run list --status completed --workflow my-workflow --since 5m --json
+```
 
 ---
 
