@@ -19,8 +19,8 @@ solidactions init <your-api-key>
 # Try the hello-world example
 cd hello-world
 npm install
-solidactions deploy hello-world
-solidactions run hello-world hello-world -i '{"name": "Alice"}' -w
+solidactions project deploy hello-world
+solidactions run start hello-world hello-world -i '{"name": "Alice"}' -w
 ```
 
 ## Projects

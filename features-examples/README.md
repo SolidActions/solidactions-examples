@@ -38,44 +38,44 @@ cp .env.example .env
 ## Deploy
 
 ```bash
-solidactions deploy features-examples features-examples
+solidactions project deploy features-examples features-examples
 ```
 
 ## Running Examples
 
 ```bash
 # Simple steps
-solidactions run features-examples simple-steps -i '{"taskId": "test-1", "value": 42}' -w
+solidactions run start features-examples simple-steps -i '{"taskId": "test-1", "value": 42}' -w
 
 # Sleep workflow (durable sleep)
-solidactions run features-examples sleep-workflow -i '{"taskId": "sleep-1", "sleepMs": 5000}' -w
+solidactions run start features-examples sleep-workflow -i '{"taskId": "sleep-1", "sleepMs": 5000}' -w
 
 # Invoice approval (will wait for human action)
-solidactions run features-examples invoice-approval -i '{"requestId": "req-1", "requester": "Alice", "amount": 500, "description": "Office supplies"}' -w
+solidactions run start features-examples invoice-approval -i '{"requestId": "req-1", "requester": "Alice", "amount": 500, "description": "Office supplies"}' -w
 
 # Parent-child
-solidactions run features-examples parent-child -i '{"value": 7, "operation": "square"}' -w
+solidactions run start features-examples parent-child -i '{"value": 7, "operation": "square"}' -w
 
 # Retry workflow (60% simulated failure rate)
-solidactions run features-examples retry-workflow -i '{"taskId": "retry-1", "failureRate": 0.6}' -w
+solidactions run start features-examples retry-workflow -i '{"taskId": "retry-1", "failureRate": 0.6}' -w
 
 # Event workflow (progress tracking)
-solidactions run features-examples event-workflow -i '{"items": ["item-a", "item-b", "item-c"]}' -w
+solidactions run start features-examples event-workflow -i '{"items": ["item-a", "item-b", "item-c"]}' -w
 
 # Parallel steps (items prefixed with "fail-" will error)
-solidactions run features-examples parallel-steps -i '{"items": ["a", "b", "fail-c", "d"]}' -w
+solidactions run start features-examples parallel-steps -i '{"items": ["a", "b", "fail-c", "d"]}' -w
 
 # Messaging (receiver triggers sender automatically)
-solidactions run features-examples message-receiver -i '{"data": "hello world"}' -w
+solidactions run start features-examples message-receiver -i '{"data": "hello world"}' -w
 
 # Multistep parent (spawns multistep-child with 4 steps)
-solidactions run features-examples multistep-parent -i '{"value": 10}' -w
+solidactions run start features-examples multistep-parent -i '{"value": 10}' -w
 
 # OAuth workflow (requires connection setup in SA UI)
-solidactions run features-examples oauth-workflow -i '{"provider": "github"}' -w
+solidactions run start features-examples oauth-workflow -i '{"provider": "github"}' -w
 
 # Respond test (use the webhook URL directly or via CLI)
-solidactions run features-examples respond-test -i '{"taskId": "wh-1", "data": "test data"}' -w
+solidactions run start features-examples respond-test -i '{"taskId": "wh-1", "data": "test data"}' -w
 ```
 
 ## Notes

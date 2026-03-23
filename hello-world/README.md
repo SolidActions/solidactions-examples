@@ -21,17 +21,17 @@ npm install
 ## Deploy
 
 ```bash
-solidactions deploy hello-world
+solidactions project deploy hello-world
 ```
 
 ## Run
 
 ```bash
 # Default greeting
-solidactions run hello-world hello-world -w
+solidactions run start hello-world hello-world -w
 
 # Custom name
-solidactions run hello-world hello-world -i '{"name": "Alice"}' -w
+solidactions run start hello-world hello-world -i '{"name": "Alice"}' -w
 ```
 
 ## Expected Output
