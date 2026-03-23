@@ -929,6 +929,137 @@ solidactions env pull my-project --update-oauth
 
 ---
 
+## New Project Workflow (Remote-Only Env Vars)
+
+Use this workflow when the user wants to keep secrets and tokens **off their local machine**. No `.env` file is created locally — all env vars live only on the SolidActions platform. Code is tested by deploying to a dev environment, not with `solidactions dev`.
+
+This is the recommended workflow for non-technical users or teams with strict credential policies.
+
+### Step 1: Scaffold and create solidactions.yaml
+
+Same as the standard workflow — create the project structure and declare workflows + env vars:
+
+```bash
+mkdir my-project && cd my-project
+npm init -y
+npm install @solidactions/sdk
+npm install -D typescript @types/node
+npx tsc --init --outDir dist --rootDir src --module nodenext --moduleResolution nodenext
+```
+
+Create `solidactions.yaml`:
+
+```yaml
+workflows:
+  - name: my-workflow
+    file: dist/my-workflow.js
+
+env:
+  - API_KEY
+  - DATABASE_URL
+  - SLACK_TOKEN: { oauth: slack }
+```
+
+### Step 2: Push config to dev AND production
+
+Register env vars in both environments so the user can configure each one:
+
+```bash
+# Register the project + env declarations in dev
+solidactions project deploy my-project . --env dev --create --config-only
+
+# Also register in production so the user can set up prod secrets too
+solidactions project deploy my-project . --env production --config-only
+```
+
+The user now has two environments to configure. This helps them understand:
+- **Dev** — safe to experiment, test with sandbox API keys
+- **Production** — real credentials, real data
+
+### Step 3: User configures env vars in both environments
+
+The user goes to the SolidActions UI and sets up each environment:
+
+**Dev environment:**
+- Connect sandbox/test OAuth apps
+- Set test API keys and database URLs
+- Map global dev variables
+
+**Production environment:**
+- Connect production OAuth apps
+- Set production API keys and database URLs
+- Map global production variables
+
+```bash
+# Or the AI can help via CLI:
+solidactions env set my-project API_KEY "sk-test-..." --env dev -y
+solidactions env set my-project API_KEY "sk-live-..." --env production -y
+solidactions env set my-project DATABASE_URL "postgres://dev-db/..." --env dev -y
+solidactions env set my-project DATABASE_URL "postgres://prod-db/..." --env production -y
+```
+
+### Step 4: Write code (while user configures envs)
+
+The AI writes workflow code in parallel — no env vars needed locally since we're not running `solidactions dev`. Code just references `process.env` and trusts the platform to inject values at runtime:
+
+```typescript
+import { SolidActions } from "@solidactions/sdk";
+
+const sa = new SolidActions();
+const workflow = sa.workflow("my-workflow", async (step) => {
+  const result = await step.run("call-api", async () => {
+    // API_KEY is injected by the platform at runtime — not in local .env
+    const response = await fetch("https://api.example.com/data", {
+      headers: { Authorization: `Bearer ${process.env.API_KEY}` },
+    });
+    return response.json();
+  });
+  return result;
+});
+export default workflow;
+```
+
+### Step 5: Deploy to dev and test
+
+```bash
+# Full deploy to dev (builds container, deploys code)
+solidactions project deploy my-project . --env dev
+
+# Trigger a test run
+solidactions run start my-project my-workflow --env dev -w
+
+# Check the result
+solidactions run view <run-id>
+solidactions run view <run-id> --logs    # if something went wrong
+```
+
+If the run fails, check logs, fix the code, redeploy. Iterate until it works in dev.
+
+### Step 6: Deploy to production
+
+Once dev is working:
+
+```bash
+# Deploy the same code to production
+solidactions project deploy my-project . --env production
+
+# Test in production
+solidactions run start my-project my-workflow --env production -w
+solidactions run view <run-id>
+```
+
+### When to use which workflow
+
+| | Standard (local .env) | Remote-only |
+|---|---|---|
+| **Env vars stored** | In `.env` on disk | Only on SolidActions platform |
+| **Local testing** | `solidactions dev` (fast, instant) | Not used — test via deploy to dev env |
+| **Iteration speed** | Fastest (no deploy needed) | Slower (deploy per change) |
+| **Security** | Secrets on disk | Secrets never leave the platform |
+| **Best for** | AI agents, developers comfortable with secrets locally | Non-technical users, strict credential policies, regulated teams |
+
+---
+
 ## Common Patterns
 
 ### Basic Multi-Step Workflow
