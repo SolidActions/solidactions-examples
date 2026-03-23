@@ -796,52 +796,136 @@ Variables are resolved at runtime and injected into the Docker container. Workfl
 
 ---
 
-## Development Workflow
+## New Project Workflow
 
-### Phase 1: Setup
+This is the recommended workflow for creating a new SolidActions project from scratch using the CLI.
 
-1. Create a new project folder
-2. Copy CLAUDE.md (this file) into the project or parent directory
-3. Install the CLI: `npm install -g @solidactions/cli`
-4. Get your API key from the SolidActions UI
-5. Initialize: `solidactions init <api-key>` (select a workspace when prompted, or use `--workspace <name-or-id>`)
-
-### Phase 2: Develop
-
-1. Create `package.json`, `tsconfig.json`, `solidactions.yaml` following the templates above
-2. Run `npm install` to install dependencies
-3. Write workflow files in `src/`
-4. Create `.env` with your `SOLIDACTIONS_API_KEY` for local testing
-
-### Phase 3: Test Locally
-
-Run workflows locally without deploying using the `dev` command:
+### Step 1: Scaffold the project
 
 ```bash
-# Run a workflow with the in-memory mock server (no deploy needed)
+mkdir my-project && cd my-project
+npm init -y
+npm install @solidactions/sdk
+npm install -D typescript @types/node
+npx tsc --init --outDir dist --rootDir src --module nodenext --moduleResolution nodenext
+```
+
+### Step 2: Create solidactions.yaml
+
+Declare your workflows and the env vars they need:
+
+```yaml
+workflows:
+  - name: my-workflow
+    file: dist/my-workflow.js
+
+env:
+  - API_KEY
+  - DATABASE_URL
+  - SLACK_TOKEN: { oauth: slack }     # OAuth-managed token
+  - WEBHOOK_SECRET: GLOBAL_SECRET_KEY  # Mapped from global variable
+```
+
+### Step 3: Deploy config to register env vars
+
+```bash
+# Deploy to register the project and sync env declarations (no build needed yet)
+solidactions project deploy my-project . --env production --config-only
+```
+
+This creates the project in SolidActions and registers the env vars from your YAML. No code is uploaded or built.
+
+### Step 4: User configures secrets and OAuth
+
+The user now goes to the SolidActions UI (or uses the CLI) to:
+- Connect OAuth apps (e.g., Slack) — the platform manages token refresh
+- Map global variables (e.g., `GLOBAL_SECRET_KEY` → `WEBHOOK_SECRET`)
+- Set project-specific values (e.g., `DATABASE_URL`)
+
+```bash
+# Or via CLI:
+solidactions env set API_KEY "sk-..." --secret          # Global secret
+solidactions env set my-project DATABASE_URL "postgres://..." --env production -y
+```
+
+### Step 5: Pull env vars for local development
+
+```bash
+# Pull all resolved values (including fresh OAuth tokens) into .env
+solidactions env pull my-project --env production
+
+# Result: .env file with all vars ready for local use
+cat .env
+# API_KEY=sk-...
+# DATABASE_URL=postgres://...
+# SLACK_TOKEN=xoxb-fresh-token-here
+# WEBHOOK_SECRET=the-global-secret-value
+```
+
+### Step 6: Write code and test locally
+
+```bash
+# Write your workflow
+mkdir src && cat > src/my-workflow.ts << 'EOF'
+import { SolidActions } from "@solidactions/sdk";
+
+const sa = new SolidActions();
+const workflow = sa.workflow("my-workflow", async (step) => {
+  const data = await step.run("fetch-data", async () => {
+    // process.env.API_KEY is available here
+    return { fetched: true };
+  });
+  return data;
+});
+export default workflow;
+EOF
+
+# Test locally with the in-memory mock server (reads .env automatically)
 solidactions dev src/my-workflow.ts -i '{"key": "value"}'
 ```
 
-This starts an in-memory mock server that implements the full SolidActions API, so all step execution works normally. Use this for fast iteration on workflow logic.
-
-To use real OAuth tokens locally, run `solidactions env pull my-project` first. The `.env` file will contain fresh access tokens that your workflow can access via `process.env`. Re-run with `--update-oauth` when tokens expire.
-
 **What works locally:** Sequential & parallel steps, child workflows, events, streams, retries.
 
-**What doesn't (no-ops locally):** Durable sleep scheduler wakeups, cross-process messaging, tenant env var injection.
+**What doesn't (no-ops locally):** Durable sleep scheduler wakeups, cross-process messaging.
 
-### Phase 4: Deploy & Test on Platform
+### Step 7: Deploy and test on the platform
 
-1. Deploy to dev (default): `solidactions project deploy my-project`
-2. Push env vars from local `.env`: `solidactions env push my-project`
-3. Test: `solidactions run start my-project my-workflow -i '{"key": "value"}' -w`
-4. Check logs: `solidactions run list my-project` then `solidactions run view <run-id> --logs`
+```bash
+# Full deploy (uploads source, builds container, deploys)
+solidactions project deploy my-project . --env production
 
-### Phase 5: Deploy to Production
+# Trigger a test run and wait for completion
+solidactions run start my-project my-workflow --env production -w
 
-1. Set up production env vars in SolidActions UI or CLI
-2. Deploy: `solidactions project deploy my-project --env production`
-3. Verify in SolidActions UI
+# Check the result
+solidactions run list my-project --status completed --since 5m
+solidactions run view <run-id>
+solidactions run view <run-id> --logs    # if something went wrong
+```
+
+### Step 8 (optional): Push local env vars to dev environment
+
+If your local `.env` has dev-specific values different from production, push them to the dev environment so the platform uses them too:
+
+```bash
+# Deploy to dev environment (creates it if needed)
+solidactions project deploy my-project . --env dev --create
+
+# Push your local .env values to the dev environment
+solidactions env push my-project . --env dev
+
+# Now dev runs use the same env vars as your local setup
+solidactions run start my-project my-workflow --env dev -w
+```
+
+### Refreshing OAuth tokens
+
+OAuth tokens expire. When your local `.env` has stale tokens:
+
+```bash
+# Quick refresh — only updates OAuth token values, preserves everything else in .env
+solidactions env pull my-project --update-oauth
+```
 
 ---
 
