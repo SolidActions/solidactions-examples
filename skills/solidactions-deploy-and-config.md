@@ -5,11 +5,15 @@ description: Use when the user mentions deploying a SolidActions project, settin
 
 ## Hard Rules
 
-1. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
+1. **Deploy to production. Always pass `-e production` explicitly.**
+   - **The CLI's default is `-e dev`** — running `solidactions project deploy <name> <path>` without `-e` silently deploys to dev. This is almost never what you want.
+   - Every `solidactions project deploy` invocation must include `-e production` unless the user explicitly asked to deploy to dev or staging.
+   - If the user says "deploy this" / "ship this" / "push to prod" / similar general language → production. If they say "try this in dev" / "test in staging" → use that env.
+   - *Why: dev-only projects with no production root are broken — the platform requires a production environment first. Leaving the CLI default means the AI silently creates dev-only projects and no production ever exists.*
 
-2. **Secrets: set with `solidactions env set <KEY> <VALUE>`.** Never hardcode in source. *Why: env vars are tenant-isolated by the runner; hardcoded values leak across environments.*
+2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
 
-3. **Deploy to production by default.** Pass `-e production` unless the user explicitly asks for a staging or dev environment. The CLI's own default is `dev`, so you must pass the flag explicitly. *Why: same multi-env discipline as getting-started — production is the canonical deployment target; dev/staging are optional children that only exist if the user created them.*
+3. **Secrets: set with `solidactions env set <KEY> <VALUE>`.** Never hardcode in source. *Why: env vars are tenant-isolated by the runner; hardcoded values leak across environments.*
 
 4. **For webhook auth, use the env-var pattern. Don't invent custom verification helpers.**
    - Store the shared secret with `solidactions env set WEBHOOK_SECRET <value>`.
@@ -22,15 +26,18 @@ description: Use when the user mentions deploying a SolidActions project, settin
 ## Recipe — Deploy
 
 ```bash
-# First-time deploy or subsequent deploys (explicitly target production):
+# Correct default — always include -e production:
 solidactions project deploy my-project ./ -e production
 
-# The CLI default environment is dev, so always pass -e production
-# unless the user asks for dev or staging.
+# Subsequent deploys (same command):
+solidactions project deploy my-project ./ -e production
 
-# Only if the user explicitly asks for staging/dev:
+# Only if the user EXPLICITLY asked for a non-production env:
 solidactions project deploy my-project ./ -e staging
 solidactions project deploy my-project ./ -e dev
+
+# ❌ Wrong — silently deploys to dev:
+solidactions project deploy my-project ./
 ```
 
 ## Recipe — Set Environment Variables
