@@ -5,11 +5,13 @@ description: Use when the user mentions deploying a SolidActions project, settin
 
 ## Hard Rules
 
-1. **Deploy to production. Always pass `-e production` explicitly.**
-   - **The CLI's default is `-e dev`** — running `solidactions project deploy <name> <path>` without `-e` silently deploys to dev. This is almost never what you want.
-   - Every `solidactions project deploy` invocation must include `-e production` unless the user explicitly asked to deploy to dev or staging.
-   - If the user says "deploy this" / "ship this" / "push to prod" / similar general language → production. If they say "try this in dev" / "test in staging" → use that env.
-   - *Why: dev-only projects with no production root are broken — the platform requires a production environment first. Leaving the CLI default means the AI silently creates dev-only projects and no production ever exists.*
+1. **Project deployment lifecycle: production-first.**
+   - A project's **first deploy** must explicitly pick an environment with `-e`. The CLI requires this for new projects — without it, you'll see an error listing the valid env choices.
+   - For a new project, start with `-e production`: `solidactions project deploy <name> <path> -e production`. This creates the production root. Dev and staging are optional children that attach to this root later.
+   - After production exists, subsequent deploys can target any environment. The CLI's default is `-e dev` on mature projects — intentional, so repeat deploys during development don't accidentally hit production.
+   - If the user asks to "deploy" / "ship" a new project without specifying an env → use `-e production`. If they say "try it in dev" or "deploy to staging" → use that env.
+   - If you see a "Project 'X' doesn't have a Y environment" error, deploy to the environment that **does** exist (usually production) rather than running `--create`. `--create` makes orphan environments; only use it when the user explicitly asked to add a new env.
+   - *Why: dev-only projects with no production root are broken — the platform requires a production environment to exist first. AIs often default to the CLI's `-e dev` on first deploy, which creates orphan projects with no production. The CLI now prevents this on first deploy, but you should understand the lifecycle so you don't cargo-cult `--create` when the CLI nudges you.*
 
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
 
@@ -26,17 +28,21 @@ description: Use when the user mentions deploying a SolidActions project, settin
 ## Recipe — Deploy
 
 ```bash
-# Correct default — always include -e production:
+# First deploy of a new project (required: explicit -e):
 solidactions project deploy my-project ./ -e production
 
-# Subsequent deploys (same command):
+# Subsequent deploys to production (explicit):
 solidactions project deploy my-project ./ -e production
 
-# Only if the user EXPLICITLY asked for a non-production env:
-solidactions project deploy my-project ./ -e staging
+# Subsequent deploys to dev (after dev env has been created):
 solidactions project deploy my-project ./ -e dev
+# or, using the CLI's default env for mature projects:
+solidactions project deploy my-project ./
 
-# ❌ Wrong — silently deploys to dev:
+# Deploying to an env that doesn't exist yet (only when explicitly asked):
+solidactions project deploy my-project ./ -e staging --create
+
+# ❌ Error on a new project (CLI will refuse — no env chosen):
 solidactions project deploy my-project ./
 ```
 
