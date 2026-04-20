@@ -36,6 +36,36 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
    - Rule of thumb: if a step return value would be larger than ~100KB serialized, you're probably doing it wrong. Pass a reference instead.
    - *Why: durable workflow state is meant for small coordination data (IDs, status flags, references) — not for piping large payloads through the orchestration layer. Bloated state slows resumes, hits storage limits, and complicates debugging.*
 
+7. **Prefer `Promise.allSettled()` over `Promise.all()` for parallel steps.**
+   - `Promise.all` rejects on first failure and leaves sibling step promises unresolved, which corrupts workflow state. `Promise.allSettled` lets every parallel step finish (or fail) independently, and you handle the results.
+   - Only use `Promise.all` if you genuinely want fail-fast and no other steps may continue.
+   - *Why: a partially-resolved `Promise.all` leaves dangling step state that poisons replay.*
+
+8. **Do NOT call SDK context methods inside a step.**
+   - `SolidActions.send`, `SolidActions.recv`, `SolidActions.sleep`, `SolidActions.setEvent`, `SolidActions.getEvent`, `SolidActions.startWorkflow`, and `SolidActions.respond` belong in the workflow function, not inside a `runStep()` body.
+   - *Why: these methods coordinate durable state. Calling them inside a step (which itself is a replay-cached unit) creates double-booking of durable operations on replay.*
+
+9. **Do NOT start workflows from inside a step.**
+   - Use `SolidActions.startWorkflow(...)` at the workflow-function level.
+   - *Why: same replay-determinism reason as rule 8 — child-workflow identity must be stable across replays.*
+
+10. **Steps should not mutate shared in-memory state.**
+    - Module-level variables, globals, shared caches — reading is fine, mutating is not.
+    - External side effects (API calls, DB writes, file I/O) are the whole point of steps. This rule is about in-process memory that replay will see stale on resume.
+    - *Why: replay re-runs the workflow function from scratch but pulls cached step results. Mutated in-memory state from a previous execution won't exist on replay, producing different code paths.*
+
+11. **Internal workflows do NOT call `SolidActions.run()`.**
+    - Only export the registered workflow; the top-level entry workflow for the project is the one that calls `SolidActions.run()`.
+    - *Why: `SolidActions.run()` wires the project's single entrypoint. Calling it inside a workflow file meant to be imported by another workflow creates multiple entrypoints and breaks routing.*
+
+12. **Workflow inputs and outputs must be JSON-serializable.**
+    - No classes, functions, `Date` objects (use ISO strings), `Map`/`Set`, `BigInt`, or symbols at the boundaries.
+    - *Why: the runner serializes inputs/outputs across the network and into durable storage. Non-JSON values silently lose fidelity.*
+
+13. **`send()` / `recv()` without a topic are on a separate channel from calls with a topic.**
+    - If one side calls `send(msg, 'orders')` and the other calls `recv()` with no topic, the message is never received.
+    - *Why: topics are first-class channel keys, not optional tags. Default (no-topic) is its own channel.*
+
 ## Recipe — Webhook with Early Response + Background Work
 
 The canonical SDK pattern uses `SolidActions` (the namespace import) — not standalone `step()` or `defineWorkflow()`.
