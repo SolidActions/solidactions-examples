@@ -133,6 +133,25 @@ const slug = await SolidActions.runStep(() => generateCustomSlug(), {
 });
 ```
 
+Even *inside* a step body, prefer SDK primitives. `new Date()` inside a step is replay-safe today (the step's return value is cached), but it's one refactor away from silently breaking — someone moves the line out of the step and replay corruption is back. Using the primitive keeps the code safe under refactoring.
+
+```typescript
+// ✅ Right (inside a step): keep using SDK primitives so the step stays
+// refactor-safe. `await SolidActions.now()` returns epoch ms; convert to
+// an ISO string with `new Date(ms).toISOString()` if you need a string.
+async function insertSubmission(email: string, message: string) {
+  const nowMs = await SolidActions.now();
+  const savedAt = new Date(nowMs).toISOString();
+  // ... INSERT INTO submissions (...) VALUES (..., savedAt) ...
+  return { savedAt };
+}
+
+const saved = await SolidActions.runStep(
+  () => insertSubmission(email, message),
+  { name: 'insert-submission' },
+);
+```
+
 Verify primitive names against `.solidactions/sdk-reference.md` if the SDK has been updated since this skill was authored.
 
 ## Recipe — Passing Large Data Between Steps
@@ -148,7 +167,7 @@ async function downloadLargeFile(url: string): Promise<string> {
   // Step downloads to disk and returns the PATH, not the bytes.
   const resp = await fetch(url);
   const buf = Buffer.from(await resp.arrayBuffer());
-  const filePath = path.join('/tmp', `download-${Date.now()}.bin`);
+  const filePath = path.join('/tmp', `download-${await SolidActions.now()}.bin`);
   await fs.writeFile(filePath, buf);
   return filePath;  // ✅ small string reference, not the bytes
 }
