@@ -428,7 +428,7 @@ solidactions env set WEBHOOK_SECRET "your-shared-secret-here" -s
 
 ## Recipe — Schedule (cron) Trigger
 
-In `solidactions.yaml`:
+Declare the schedule in `solidactions.yaml`:
 
 ```yaml
 project: my-project
@@ -441,16 +441,30 @@ workflows:
     schedule: "0 9 * * *"
 ```
 
-After deploy, activate the schedule:
+**Deploy auto-creates and enables the schedule — no separate activation step is needed.** The platform parses `solidactions.yaml` during build and syncs Schedule records with `enabled: true` by default. If env vars aren't set yet when the first tick fires, the run fails fast at `getConfig()` (safe, but shows as a failed run in the dashboard — set env vars before the next tick to recover).
 
 ```bash
-solidactions schedule set my-project "0 9 * * *" -w daily-report
+# Deploy activates any new/changed schedules from yaml:
+solidactions project deploy my-project ./ -e production
 
-# List active schedules:
+# List active schedules. Trust the "in Xh" countdown — the dashboard UI
+# may render next-run time in browser-local wall-clock while labeling it
+# "UTC"; the CLI countdown is authoritative.
 solidactions schedule list my-project
 
 # Remove a schedule (get the ID from schedule list first):
 solidactions schedule delete my-project <schedule-id>
+```
+
+### When to use `solidactions schedule set`
+
+Only when you need a schedule **outside** the declarative yaml flow:
+- Adding a schedule for a workflow that doesn't have `trigger: schedule` in yaml.
+- Overriding a yaml-declared schedule's cron at runtime without redeploying.
+- Running one-off / experimental schedules.
+
+```bash
+solidactions schedule set my-project "0 9 * * *" -w daily-report
 ```
 
 Note: the `schedule.timezone` option is not in the YAML schema — if timezone control is needed, adjust the cron expression to UTC equivalent.
