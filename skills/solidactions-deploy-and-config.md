@@ -131,6 +131,66 @@ Rules:
 - OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
 - Workflow code accesses all three forms the same way: `process.env.GITHUB_TOKEN`, `process.env.SHARED_API_KEY`, etc.
 
+## Recipe — New Project (YAML-first)
+
+The correct order for bootstrapping a new project. Key move: **declare env vars in YAML, deploy, then set values** — not "ask the user to fill the dashboard UI before deploying." The platform accepts deploys with declared-but-empty env vars; values are only required at runtime.
+
+### Flow
+
+1. **Scaffold project files.** Create `solidactions.yaml` with the `env:` block listing every env var the workflow(s) will need. Include stub `src/` code so the deploy has something to build:
+
+   ```yaml
+   project: my-project
+
+   workflows:
+     - id: my-workflow
+       name: My Workflow
+       file: src/my-workflow.ts
+       trigger: webhook
+
+   env:
+     - SENDGRID_API_KEY     # secret — user provides value
+     - DATABASE_URL         # secret — user provides value
+     - LOG_LEVEL            # non-secret — AI will set
+   ```
+
+   Also scaffold `package.json`, `tsconfig.json`, and a minimal `src/my-workflow.ts` (see `solidactions-getting-started` skill for the file templates).
+
+2. **First deploy creates the project and registers env declarations.** The platform accepts this even when declared env vars have no values yet:
+
+   ```bash
+   solidactions project deploy my-project ./ -e production
+   ```
+
+3. **AI sets values it knows.** For any env var the AI has a value for (non-sensitive config, well-known defaults, its own test fixtures), set via CLI. Apply the `-s` discipline from Rule 3:
+
+   ```bash
+   solidactions env set my-project LOG_LEVEL "info" -e production
+   solidactions env set my-project MAX_RETRIES "5" -e production
+   ```
+
+4. **AI gives the user a copy-pasteable list for unknowns.** Do NOT tell the user to "go set this in the dashboard UI." Give them the exact CLI commands:
+
+   > I need these env vars set — run these commands (or set them in the dashboard UI):
+   > ```bash
+   > solidactions env set my-project SENDGRID_API_KEY <your-sendgrid-key> -e production
+   > solidactions env set my-project DATABASE_URL <your-db-url> -s -e production
+   > ```
+
+   Include `-s` explicitly for any name that doesn't match the CLI's auto-detect regex (see Rule 3).
+
+5. **Write workflow code** referencing `process.env.X`. This can happen in parallel with step 4 — the code just references the env var names; whether the platform has values yet doesn't affect the TypeScript.
+
+6. **Redeploy with real code** once the workflow is written:
+
+   ```bash
+   solidactions project deploy my-project ./ -e production
+   ```
+
+### Three-environment model
+
+SolidActions supports exactly three environments per project: **dev**, **staging**, and **production**. Production is the root — every project must have one before dev/staging can exist (this is why Rule 1 requires production-first on the initial deploy). Only add dev/staging when the user explicitly asks.
+
 ## Recipe — Deploy
 
 ```bash
@@ -184,6 +244,27 @@ solidactions env push my-project ./ -e staging
 # Pull resolved variables to a local .env file (for local dev with `solidactions dev`):
 solidactions env pull my-project
 solidactions env pull my-project -e staging
+```
+
+### Environment variable inheritance
+
+Project env var values cascade across environments:
+
+| Environment | Resolution |
+|---|---|
+| **Production** | Uses its own value (must be set for the workflow to run). |
+| **Staging** | Uses its own value if set; otherwise inherits from production. |
+| **Dev** | Uses its own value if set; otherwise inherits from staging, then production. |
+
+You often only need to set values in production — staging and dev inherit automatically. Set explicit values in staging/dev only when they should differ (e.g., sandbox API keys for staging, a local dev DB URL for dev).
+
+```bash
+# Set once in production; staging and dev inherit:
+solidactions env set my-project DATABASE_URL "postgres://prod-db/..." -s -e production
+
+# Override in dev with a sandbox value:
+solidactions env set my-project DATABASE_URL "postgres://sandbox-db/..." -s -e dev
+# Staging still inherits from production.
 ```
 
 ## Recipe — Custom Webhook Auth (fallback only)
