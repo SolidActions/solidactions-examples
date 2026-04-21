@@ -236,10 +236,12 @@ const workflow = SolidActions.registerWorkflow(webhookWorkflow, {
 SolidActions.run(workflow);
 ```
 
-Set the secret before deploy:
+Set the secret before deploy (global env set has no auto-detect — pass `-s` explicitly):
 
 ```bash
-solidactions env set WEBHOOK_SECRET "your-shared-secret-here"
+solidactions env set my-project WEBHOOK_SECRET "your-shared-secret-here" -e production
+# or global:
+solidactions env set WEBHOOK_SECRET "your-shared-secret-here" -s
 ```
 
 (Verify SDK function names against `.solidactions/sdk-reference.md` if the SDK has been updated since this skill was authored.)
