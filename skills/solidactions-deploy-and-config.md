@@ -137,24 +137,34 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
 
 ### Flow
 
-1. **Scaffold project files.** Create `solidactions.yaml` with the `env:` block listing every env var the workflow(s) will need. Include stub `src/` code so the deploy has something to build:
+1. **Scaffold the project.** `solidactions init` creates the directory, writes `package.json`, `tsconfig.json`, `solidactions.yaml`, `src/hello.ts`, and `.env.example` from the canonical template — and installs the AI skills + SDK reference:
+
+   ```bash
+   solidactions init my-project --claude    # or --agents
+   cd my-project
+   ```
+
+   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `WEBHOOK_SECRET` + `GREETING`. **Edit it to add any additional env vars your workflow needs** before deploying:
 
    ```yaml
    project: my-project
 
    workflows:
-     - id: my-workflow
-       name: My Workflow
-       file: src/my-workflow.ts
+     - id: hello
+       name: Hello
+       file: src/hello.ts
        trigger: webhook
+       webhook:
+         auth: hmac            # gateway-level HMAC verification
+         method: [POST]
 
    env:
-     - SENDGRID_API_KEY     # secret — user provides value
-     - DATABASE_URL         # secret — user provides value
-     - LOG_LEVEL            # non-secret — AI will set
+     - WEBHOOK_SECRET          # (from template) gateway-consumed HMAC secret
+     - GREETING                # (from template) workflow-consumed example
+     - SENDGRID_API_KEY        # add any additional env vars the workflow will need
+     - DATABASE_URL
+     - LOG_LEVEL
    ```
-
-   Also scaffold `package.json`, `tsconfig.json`, and a minimal `src/my-workflow.ts` (see `solidactions-getting-started` skill for the file templates).
 
 2. **First deploy creates the project and registers env declarations.** The platform accepts this even when declared env vars have no values yet:
 
