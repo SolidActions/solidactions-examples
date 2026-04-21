@@ -15,15 +15,121 @@ description: Use when the user mentions deploying a SolidActions project, settin
 
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
 
-3. **Secrets: set with `solidactions env set <KEY> <VALUE>`.** Never hardcode in source. *Why: env vars are tenant-isolated by the runner; hardcoded values leak across environments.*
+3. **Secrets: set via CLI with `-s` when the key name doesn't hint at sensitivity.** Never hardcode in source.
+   - The CLI auto-detects keys matching `/secret|key|token|password|credential/i` and flags them secret automatically — `STRIPE_API_KEY`, `GITHUB_TOKEN`, `WEBHOOK_SECRET` don't need explicit `-s`.
+   - For names the auto-detect misses — `DATABASE_URL`, `REDIS_URL`, `MONGO_URI`, connection strings, URLs with embedded auth, private service endpoints — **always pass `-s` explicitly**.
+   - When in doubt, pass `-s`. Adding it to an already-auto-detected secret is a no-op.
+   - *Why: env vars are tenant-isolated, but without the secret flag the value is plaintext in the UI and leaks via copy-paste, screenshots, and support conversations. Connection strings especially carry credentials in the value itself.*
 
-4. **For webhook auth, use the env-var pattern. Don't invent custom verification helpers.**
-   - Store the shared secret with `solidactions env set WEBHOOK_SECRET <value>`.
-   - Read it inside the workflow via `process.env.WEBHOOK_SECRET`.
-   - Verify the incoming signature inside a `SolidActions.runStep()` so the comparison is deterministic and replayable.
-   - *Why: AIs hallucinate framework-specific auth helpers that don't exist; the env-var + step-wrapped verification is the universally-correct pattern.*
+4. **Webhook auth: configure in `solidactions.yaml` first — custom workflow code is a fallback, not the default.**
+   - The platform verifies signatures at the gateway when you declare `auth:` in the webhook config. Options: `hmac` (default), `basic`, `header`, `none`. See the `solidactions.yaml` schema recipe below for the full table.
+   - Only write in-workflow HMAC verification when the platform's schemes don't cover yours — non-SHA256 algorithms, multi-header schemes, vendor-specific flows. See "Recipe — Custom Webhook Auth" for that fallback.
+   - *Why: AIs default to rolling their own HMAC in workflow code, but the platform already does this at the gateway — before any container spins up. Gateway-level auth rejects bad signatures for free; in-workflow verification pays compute for each rejection.*
 
 5. **For schedules, set the cron string in `solidactions.yaml`, not in code.** Use `solidactions schedule set` to activate a schedule after deploy. *Why: declarative schedules in YAML survive workflow code refactors; programmatic schedules drift.*
+
+## Recipe — `solidactions.yaml` Schema
+
+The YAML file is the source of truth for non-code config: workflows, triggers, webhook auth, env var declarations, and OAuth mappings. Get this right before writing workflow code — most "how do I do X at the platform level" questions are answered here, not in TypeScript.
+
+### Minimal shape
+
+```yaml
+project: my-project
+
+workflows:
+  - id: my-workflow
+    name: My Workflow
+    file: src/my-workflow.ts
+    trigger: webhook
+
+env:
+  - API_KEY
+  - DATABASE_URL
+```
+
+### Trigger types
+
+| Trigger | Purpose |
+|---|---|
+| `webhook` | HTTP-triggered. Gets a URL after deploy. Most common. |
+| `internal` | Spawned by other workflows via `SolidActions.startWorkflow()`. Internal workflows do NOT call `SolidActions.run()`. |
+| `schedule` | Cron-triggered. Requires a `schedule:` field with a cron expression, e.g. `schedule: "0 9 * * *"`. |
+
+### Webhook config options
+
+```yaml
+workflows:
+  - id: my-webhook
+    name: My Webhook
+    file: src/my-webhook.ts
+    trigger: webhook
+    webhook:
+      method: [GET, POST]       # Allowed HTTP methods (default: [POST])
+      auth: hmac                # hmac | basic | header | none (default: hmac)
+      auth_header: X-API-Key    # Custom header name (for auth: header)
+      response:
+        mode: wait              # instant (default) | wait — wait blocks until SolidActions.respond() or workflow returns
+        timeout: 60             # seconds, 1-300 (default: 30); applies to wait mode
+      path: hooks/my-endpoint   # Custom URL path (optional, must be unique)
+```
+
+For a minimal webhook with all defaults, just `trigger: webhook` — no `webhook:` block needed.
+
+### Authentication strategies (gateway-level)
+
+| Strategy | YAML | How It Works |
+|---|---|---|
+| **HMAC** (default) | `hmac` | SHA-256 signature verified via `X-Hub-Signature-256`, `X-Signature-256`, or `Stripe-Signature` headers. Store the shared secret in `WEBHOOK_SECRET` — the gateway reads it. |
+| **Basic** | `basic` | HTTP Basic Auth with stored credentials. |
+| **Header** | `header` | Custom header (default `X-API-Key`) compared against the webhook secret. Change the header name with `auth_header`. |
+| **None** | `none` | No authentication. All requests accepted. Only for truly public endpoints. |
+
+Prefer `hmac` or `header` — both are enforced at the gateway before the workflow container spins up. Rejected requests cost nothing.
+
+### Custom instant response with template variables
+
+Override the default 202 response with a custom status code and body:
+
+```yaml
+webhook:
+  method: POST
+  auth: none
+  response:
+    mode: instant
+    status: 200
+    body:
+      ok: true
+      request_id: "{{run_uuid}}"
+      trigger: "{{trigger_id}}"
+      received_at: "{{timestamp}}"
+```
+
+Template variables resolved at request time: `{{run_uuid}}`, `{{trigger_id}}`, `{{timestamp}}`.
+
+### Env var declaration forms
+
+The `env:` block declares what env vars the workflow expects. Three forms:
+
+```yaml
+env:
+  # Plain declaration — value set later via `solidactions env set` or UI:
+  - DATABASE_URL
+
+  # Map to a global variable (set once globally, reused per-project):
+  - SHARED_API_KEY: GLOBAL_API_KEY
+
+  # Map to an OAuth connection (platform auto-refreshes tokens):
+  - GITHUB_TOKEN:
+      oauth: "GitHub Personal"
+  - SLACK_TOKEN:
+      oauth: "Slack Workspace"
+```
+
+Rules:
+- An env var maps to **either** a global variable **or** an OAuth connection — not both.
+- OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
+- Workflow code accesses all three forms the same way: `process.env.GITHUB_TOKEN`, `process.env.SHARED_API_KEY`, etc.
 
 ## Recipe — Deploy
 
@@ -48,30 +154,46 @@ solidactions project deploy my-project ./
 
 ## Recipe — Set Environment Variables
 
+The `-e <env>` flag picks the environment (default `dev`). The `-s` flag marks the value as a secret (masked in the UI). The CLI auto-detects keys matching `/secret|key|token|password|credential/i` as secrets — but for connection strings and other non-obvious secrets, pass `-s` explicitly.
+
 ```bash
-# Set a global secret (available to all projects):
-solidactions env set SENDGRID_API_KEY "sk-live-..."
+# Auto-detected as secret (name matches the regex) — no -s needed:
+solidactions env set my-project SENDGRID_API_KEY "sk-live-..." -e production
+solidactions env set my-project GITHUB_TOKEN "ghp-..." -e production
 
-# Set a secret on a specific project:
-solidactions env set my-project SENDGRID_API_KEY "sk-live-..."
+# NOT auto-detected — pass -s explicitly for connection strings, URLs with creds, etc:
+solidactions env set my-project DATABASE_URL "postgres://user:pass@host/db" -s -e production
+solidactions env set my-project REDIS_URL "redis://:pass@host:6379" -s -e production
+solidactions env set my-project WEBHOOK_CALLBACK_URL "https://signed.example.com/..." -s -e production
 
-# List global variables:
-solidactions env list
+# Non-sensitive config (no -s):
+solidactions env set my-project LOG_LEVEL "info" -e production
+solidactions env set my-project MAX_RETRIES "5" -e production
 
-# List project variables:
-solidactions env list my-project
+# Global variable (available to all projects in workspace):
+solidactions env set SENDGRID_API_KEY "sk-live-..." -s
 
-# Push from a local .env file (bulk, for a project):
-solidactions env push my-project ./
+# List variables:
+solidactions env list              # global
+solidactions env list my-project   # project (current env)
+solidactions env list my-project -e production
 
-# Pull resolved variables to a local .env file:
-solidactions env pull my-project
-
-# For a specific environment:
+# Bulk push from local .env file:
 solidactions env push my-project ./ -e staging
+
+# Pull resolved variables to a local .env file (for local dev with `solidactions dev`):
+solidactions env pull my-project
+solidactions env pull my-project -e staging
 ```
 
-## Recipe — Webhook Auth (HMAC verification)
+## Recipe — Custom Webhook Auth (fallback only)
+
+Only use in-workflow verification when the platform's gateway-level auth (`hmac` / `basic` / `header` — see YAML schema recipe above) doesn't fit your scheme. Examples of when you'd reach for this:
+- Non-SHA256 signature algorithms
+- Multi-header or nested-header schemes
+- Vendor-specific auth flows the gateway doesn't recognize
+
+For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary.
 
 ```typescript
 import { SolidActions } from '@solidactions/sdk';
