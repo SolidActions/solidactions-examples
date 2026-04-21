@@ -1,0 +1,21 @@
+# The CLI replaces __PROJECT_NAME__ with the scaffolded project's name.
+project: __PROJECT_NAME__
+
+workflows:
+  - id: hello
+    name: Hello
+    file: src/hello.ts
+    trigger: webhook
+    webhook:
+      method: [POST]
+      auth: hmac          # Gateway verifies HMAC signatures before the workflow runs.
+                          # Requires WEBHOOK_SECRET env var to be set.
+
+env:
+  # Gateway-consumed: the platform reads this to verify incoming HMAC signatures.
+  # Your workflow code does NOT reference this — the gateway rejects bad
+  # signatures before the container starts.
+  - WEBHOOK_SECRET
+
+  # Example workflow-consumed env var (read via process.env.GREETING):
+  - GREETING
