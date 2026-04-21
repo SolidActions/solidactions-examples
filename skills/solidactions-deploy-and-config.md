@@ -383,6 +383,17 @@ Top failure modes to check first:
 4. Schedule not firing → confirm `solidactions schedule list my-project` shows it active
 5. Stale code being executed → re-deploy with `solidactions project deploy my-project ./ -e production`
 
+### Failure-pattern lookup (when reading `run view --json` / `--detailed`)
+
+| Pattern in JSON | Likely cause | Where to look next |
+|---|---|---|
+| `status: "failed"` with `session_status: null` | Dispatch failure — the run never got a container. Queue or infra issue. | `solidactions project logs` for build/deploy errors; check workspace quota. |
+| Session started but `steps: []` and errors in logs | SDK init failure — the container came up but the SDK couldn't register or the workflow function never called `SolidActions.run()`. | `run view <id> --logs`; verify the workflow file exports and calls `SolidActions.run()`. |
+| Some steps completed, then stops mid-workflow | Runtime error inside workflow code. | `run view <id> --logs` for the throwing step; check that step for unhandled rejections. |
+| All steps `completed`, run `status: "ERROR"`, `exit_code: 1` | Post-execution failure — workflow returned but process exited non-zero after. | Logs around the final step; look for uncaught errors in cleanup code or shutdown handlers. |
+| Repeated `"fetch failed"` in logs with retries | Network / tunnel connectivity; not your code. | Retry after a few minutes; if persistent, check service status. |
+| Workflow returns stale data after a deploy | Snapshot cache served the old bundle. | Redeploy with `project deploy` (not `--config-only`) to invalidate. |
+
 ## Pointers
 
 - Project setup and multi-env model: see `solidactions-getting-started` skill.
