@@ -206,6 +206,206 @@ const result = await SolidActions.runStep(() => process(bytes), { name: 'process
 
 For external blob storage (S3 / R2 / etc.), the same rule applies — return the storage key or URL, not the bytes.
 
+## Recipe — Parent-Child Workflow
+
+For work that benefits from being structured as a nested flow, encapsulating reusable logic, or running with independent timeout/retry policies. The child workflow uses `trigger: internal` (no URL, never called from outside) and the parent uses `SolidActions.startWorkflow()` to invoke it.
+
+### YAML
+
+```yaml
+project: my-project
+
+workflows:
+  - id: parent
+    name: Parent
+    file: src/parent.ts
+    trigger: webhook
+
+  - id: child
+    name: Child
+    file: src/child.ts
+    trigger: internal   # no URL — only spawnable from other workflows
+```
+
+### Child (src/child.ts)
+
+```typescript
+import { SolidActions } from '@solidactions/sdk';
+
+interface ChildInput { value: number }
+interface ChildOutput { doubled: number }
+
+async function childFunction(input: ChildInput): Promise<ChildOutput> {
+  const result = await SolidActions.runStep(
+    () => ({ doubled: input.value * 2 }),
+    { name: 'double' },
+  );
+  return result;
+}
+
+// Export only — internal workflows do NOT call SolidActions.run() (Hard Rule 11).
+export const childWorkflow = SolidActions.registerWorkflow(childFunction, {
+  name: 'child',
+});
+```
+
+### Parent (src/parent.ts)
+
+```typescript
+import { SolidActions } from '@solidactions/sdk';
+import { childWorkflow } from './child.js';
+
+interface ParentInput { value: number }
+
+async function parentFunction(input: ParentInput) {
+  // startWorkflow returns a curried function — invoke it with the child's args:
+  const handle = await SolidActions.startWorkflow(childWorkflow)(input);
+
+  // You can do other work here in parallel before waiting:
+  // await SolidActions.runStep(() => somethingElse(), { name: 'other' });
+
+  const result = await handle.getResult();
+  return result;
+}
+
+const workflow = SolidActions.registerWorkflow(parentFunction, { name: 'parent' });
+SolidActions.run(workflow);
+```
+
+To impose a timeout on the child: `SolidActions.startWorkflow(childWorkflow, { timeoutMS: 60_000 })(input)`. To make the child idempotent on a business key, pass `workflowID` so repeated calls with the same key execute once.
+
+## Recipe — Workflow-to-Workflow Messaging
+
+For async coordination where one workflow hands off work to another and later picks up a result on a named topic. Unlike parent-child (parent blocks on `getResult()`), messaging uses a mailbox — the receiver calls `recv()` when it's ready.
+
+### YAML
+
+```yaml
+workflows:
+  - id: receiver
+    name: Receiver
+    file: src/receiver.ts
+    trigger: webhook
+
+  - id: sender
+    name: Sender
+    file: src/sender.ts
+    trigger: internal
+```
+
+### Sender (src/sender.ts)
+
+```typescript
+import { SolidActions } from '@solidactions/sdk';
+
+interface SenderInput { callbackWorkflowID: string; payload: string }
+
+async function processData(data: string) {
+  // ... do the actual work
+  return { processed: data.toUpperCase() };
+}
+
+async function senderFunction(input: SenderInput): Promise<void> {
+  const result = await SolidActions.runStep(
+    () => processData(input.payload),
+    { name: 'process' },
+  );
+  // Post back to the caller's mailbox on a named topic:
+  await SolidActions.send(input.callbackWorkflowID, result, 'task-result');
+}
+
+export const messageSender = SolidActions.registerWorkflow(senderFunction, {
+  name: 'sender',
+});
+```
+
+### Receiver (src/receiver.ts)
+
+```typescript
+import { SolidActions } from '@solidactions/sdk';
+import { messageSender } from './sender.js';
+
+interface ReceiverInput { payload: string }
+
+async function receiverFunction(input: ReceiverInput) {
+  // Kick off the sender, passing OUR workflow ID as the return address:
+  await SolidActions.startWorkflow(messageSender)({
+    callbackWorkflowID: SolidActions.workflowID!,
+    payload: input.payload,
+  });
+
+  // Block until the sender posts to our 'task-result' mailbox (5 min timeout):
+  const result = await SolidActions.recv<{ processed: string }>('task-result', 300);
+  if (!result) throw new Error('sender timed out');
+  return result;
+}
+
+const workflow = SolidActions.registerWorkflow(receiverFunction, { name: 'receiver' });
+SolidActions.run(workflow);
+```
+
+Topics matter: messages sent with topic `'task-result'` are in a separate channel from messages sent without a topic (Hard Rule 13). `recv()` returns `null` on timeout — handle it. Don't call `send()` or `recv()` inside a `runStep()` body (Hard Rule 8).
+
+## Recipe — Human Approval (Signal URLs)
+
+For workflows that pause and wait for a human to click an approve/reject link. `SolidActions.getSignalUrls()` returns pre-built URLs the platform resolves into signals on a named topic.
+
+```typescript
+import { SolidActions } from '@solidactions/sdk';
+
+interface ApprovalInput { requestID: string; description: string }
+
+async function createApprovalRecord(input: ApprovalInput) {
+  // ... persist the pending approval in your DB
+}
+
+async function notifyApprover(args: {
+  to: string;
+  approveUrl: string;
+  rejectUrl: string;
+  description: string;
+}) {
+  // ... send email / Slack / etc with the clickable URLs
+}
+
+async function approvalWorkflow(input: ApprovalInput): Promise<{ approved: boolean }> {
+  await SolidActions.runStep(
+    () => createApprovalRecord(input),
+    { name: 'record-request' },
+  );
+
+  // getSignalUrls is SYNCHRONOUS — no await.
+  const urls = SolidActions.getSignalUrls('approval');
+  // urls: { base, approve, reject, custom: (action) => url }
+
+  await SolidActions.runStep(
+    () =>
+      notifyApprover({
+        to: 'approver@example.com',
+        approveUrl: urls.approve,
+        rejectUrl: urls.reject,
+        description: input.description,
+      }),
+    { name: 'notify-approver' },
+  );
+
+  // Container exits here. When the approver clicks a link, the platform posts
+  // a signal on the 'approval' topic and the workflow resumes. Wait up to 24h.
+  const signal = await SolidActions.recv<{ choice: string; reason?: string }>(
+    'approval',
+    86400,
+  );
+
+  if (!signal) return { approved: false }; // timeout
+  return { approved: signal.choice === 'approve' };
+}
+
+const workflow = SolidActions.registerWorkflow(approvalWorkflow, { name: 'approval' });
+SolidActions.run(workflow);
+```
+
+The topic argument to `getSignalUrls('approval')` must match the topic passed to `recv('approval', ...)` — signals route by topic. For more than approve/reject, use `urls.custom('some-action')` to get a URL that signals with that action name. Workflows durably resume across restarts, so timeouts of hours or days are fine.
+
 ## Pointers
 
 - Full SDK reference: `.solidactions/sdk-reference.md`
