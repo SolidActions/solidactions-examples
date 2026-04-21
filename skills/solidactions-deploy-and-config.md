@@ -40,13 +40,15 @@ project: my-project
 workflows:
   - id: my-workflow
     name: My Workflow
-    file: src/my-workflow.ts
+    file: src/my-workflow.ts         # always TypeScript source — never dist/*.js
     trigger: webhook
 
 env:
   - API_KEY
   - DATABASE_URL
 ```
+
+> **`file:` is always the TypeScript source path.** The platform compiles your code in the container and writes output to `/app/dist/`. Pointing at `dist/...js` resolves to `/app/dist/dist/...js` and fails with `MODULE_NOT_FOUND` at deploy time. See the `solidactions-getting-started` skill's Platform Mental Model section for the full picture.
 
 ### Trigger types
 
@@ -254,6 +256,33 @@ solidactions env push my-project ./ -e staging
 # Pull resolved variables to a local .env file (for local dev with `solidactions dev`):
 solidactions env pull my-project
 solidactions env pull my-project -e staging
+solidactions env pull my-project -y               # skip secret-confirmation prompt (for scripts)
+```
+
+### Reusing values across projects — prefer `env map`, not `pull → set`
+
+When two projects share a value (a common `DATABASE_URL`, a shared API key), the canonical path is a **global variable** referenced by each project via `env map`:
+
+```bash
+# 1. Create a global variable once (workspace-wide):
+solidactions env set SHARED_DATABASE_URL "postgres://..." -s
+
+# 2. Map each project's env key to the global:
+solidactions env map project-a DATABASE_URL SHARED_DATABASE_URL
+solidactions env map project-b DATABASE_URL SHARED_DATABASE_URL
+```
+
+Rotating the secret then happens once (`env set SHARED_DATABASE_URL ...`) and both projects see the new value. Both projects still reference the value as `process.env.DATABASE_URL` in code.
+
+**Avoid** the `env pull <source> → edit .env → env set <target>` round-trip for cross-project sharing. Two traps:
+1. `env pull` wraps values containing `=`, `#`, spaces, or quotes (most `DATABASE_URL`s qualify) in literal double quotes: `DATABASE_URL="postgres://..."`. A naive `cut -d= -f2-` extraction then captures the quotes and `env set` stores them as part of the value, producing cryptic DNS / URL-parse failures at runtime.
+2. Values drift — rotate the secret in one project, forget the other, the two projects diverge.
+
+If you must round-trip, strip the quotes explicitly:
+
+```bash
+VALUE=$(awk -F= '/^DATABASE_URL=/ {sub(/^DATABASE_URL=/,""); gsub(/^"|"$/,""); print}' .env)
+solidactions env set target-project DATABASE_URL "$VALUE" -s -e production
 ```
 
 ### Environment variable inheritance
@@ -276,6 +305,66 @@ solidactions env set my-project DATABASE_URL "postgres://prod-db/..." -s -e prod
 solidactions env set my-project DATABASE_URL "postgres://sandbox-db/..." -s -e dev
 # Staging still inherits from production.
 ```
+
+## Recipe — CLI Config & Environment Switching
+
+The CLI reads host, API key, and workspace ID from three sources, in this precedence order:
+
+| Layer | Location | When it wins |
+|---|---|---|
+| **Env vars** | `SOLIDACTIONS_HOST` / `SOLIDACTIONS_API_KEY` / `SOLIDACTIONS_WORKSPACE_ID` | Always — overrides both files |
+| **Local config** | `<project>/.solidactions/config.json` (walks up from cwd) | When set and no env var for that field |
+| **Global config** | `~/.solidactions/config.json` | Default fallback |
+
+Resolution is **field-by-field**: a local config can override just `workspaceId` while inheriting `host` and `apiKey` from global.
+
+### Verify which config is active
+
+```bash
+solidactions whoami        # shows host + user; confirms which config layer the CLI is reading
+```
+
+### Switching between environments (e.g., e2e vs production tenants)
+
+Three canonical patterns, pick the one that matches your workflow:
+
+**1. Per-project local config (recommended for projects pinned to one tenant):**
+
+```bash
+# Inside the project directory, create a local config:
+mkdir -p .solidactions
+cat > .solidactions/config.json <<'JSON'
+{
+  "host": "https://e2e.solidactions.example",
+  "apiKey": "sa-live-...",
+  "workspaceId": "ws_e2e_123"
+}
+JSON
+
+# Gitignore it — it holds an API key:
+echo '.solidactions/config.json' >> .gitignore
+```
+
+Every CLI call from within the project now uses the local config, regardless of what `~/.solidactions/config.json` says.
+
+**2. One-off env var override (for quick switches without touching files):**
+
+```bash
+SOLIDACTIONS_HOST=https://e2e.solidactions.example \
+SOLIDACTIONS_API_KEY=sa-live-... \
+solidactions run list my-project
+```
+
+**3. Global config swap (only when you rarely switch):**
+
+```bash
+solidactions login <api-key-for-new-tenant>     # rewrites ~/.solidactions/config.json
+```
+
+### Anti-patterns
+
+- **Don't `cp config.json.backup config.json` between runs.** That's a symptom of missing the local-config layer — use pattern 1 or 2 instead. If you see a project repeatedly reverting to a different tenant mid-session, check for a local `.solidactions/config.json` one of your ancestor directories might own (the CLI walks up from cwd).
+- **Don't commit `.solidactions/config.json` to git** — it holds an API key. The path is already a common `.gitignore` entry; confirm it.
 
 ## Recipe — Custom Webhook Auth (fallback only)
 
@@ -368,14 +457,34 @@ Note: the `schedule.timezone` option is not in the YAML schema — if timezone c
 
 ## Recipe — Debugging Runs
 
+`run view` has three modes — pick the right one based on what you're trying to learn:
+
+| Command | What it shows | When to use it |
+|---|---|---|
+| `solidactions run view <id>` | Summary: status, timeline, step names/durations, last 10 log lines | First look at a run — orientation. |
+| `solidactions run view <id> --logs` | **Raw container logs** (full stdout/stderr) | Workflow failed with a cryptic error. This is the fast path to the actual thrown message. |
+| `solidactions run view <id> --steps` | Checkpoint-by-checkpoint trace with per-step outputs | Workflow-logic issues: step ran but produced the wrong value, or you need to see where it stopped. |
+
+Decision tree for a failing run:
+
+1. **`run view <id>`** first for the 10-second summary.
+2. If the error message is cryptic or says something like "MODULE_NOT_FOUND" / "ENOTFOUND" / "Cannot read properties of undefined" — **`--logs`** next. Raw container output usually contains the real stack.
+3. If the run *completed* but the workflow took the wrong branch or returned the wrong value — **`--steps`** to see the checkpoint outputs.
+
 ```bash
 # List recent runs for a project:
 solidactions run list my-project
 
-# View a specific run's details and step log:
+# Summary view (orientation):
 solidactions run view <run-id>
 
-# View build/deployment logs:
+# Raw container logs (fast path on cryptic errors):
+solidactions run view <run-id> --logs
+
+# Checkpoint trace (workflow-logic debugging):
+solidactions run view <run-id> --steps
+
+# View build/deployment logs (failures before a run even starts):
 solidactions project logs my-project
 
 # Trigger a run manually for testing:

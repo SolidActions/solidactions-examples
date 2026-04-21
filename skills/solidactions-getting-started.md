@@ -11,6 +11,14 @@ description: Use when the user mentions building, scaffolding, or starting a new
 - Never deploy to a `dev` or `staging` environment as the first deployment. *Why: same rule as above — production must always exist first; deploying to a child environment before the root creates an invalid project state.*
 - Read `.solidactions/sdk-reference.md` (dropped by `init` and `ai init`) before using any SDK function you don't know cold. *Why: prevents inventing methods that don't exist — the reference file is pinned to the installed SDK version and is the canonical source of truth.*
 
+## Platform Mental Model
+
+Three runtime facts that drive most "how does this actually work?" questions:
+
+- **Deploy uploads the entire project root.** Not just `src/` — any folder alongside it (`prompts/`, `templates/`, `data/`, `schemas/`) ships with the project and is readable at runtime via cwd-relative paths (`fs.readFileSync('prompts/foo.md', 'utf8')`).
+- **The platform compiles your TypeScript in the container.** Source lives at the path you wrote; compiled output is written to `/app/dist/` inside the container. Your `file:` entries in `solidactions.yaml` always point at **source** (`src/my-workflow.ts`), never a compiled path — the platform prepends `/app/dist/` internally, so `file: dist/...js` resolves to `/app/dist/dist/...js` and fails with `MODULE_NOT_FOUND`.
+- **Projects are network-isolated from each other.** There is no internal DNS between projects. Inter-project communication goes over HTTP/webhooks (using each project's public URL), never a private alias. Shared values (a common API key, a shared DB URL) should use `solidactions env map` to reference a global variable, not network coupling between projects.
+
 ## Project Layout
 
 ```
@@ -21,9 +29,11 @@ my-project/
 ├── .env
 ├── .env.example
 ├── .solidactions/
-│   └── sdk-reference.md   # written by `solidactions init` or `solidactions ai init`
+│   └── sdk-reference.md    # written by `solidactions init` or `solidactions ai init`
 ├── .claude/
 │   └── skills/             # written by `solidactions init` or `solidactions ai init`
+├── prompts/                # (example) static files alongside src/ ship at deploy —
+│   └── system.md           #   read at runtime via cwd-relative paths
 └── src/
     └── my-workflow.ts
 ```

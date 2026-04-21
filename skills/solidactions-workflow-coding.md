@@ -7,11 +7,11 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
 
 ## Hard Rules
 
-1. **Determinism: use SDK durable primitives first; fall back to `SolidActions.runStep()` only when no SDK primitive exists.**
-   - Replace `Date.now()` with `SolidActions.now()` — the SDK's durable timestamp primitive.
-   - Replace `crypto.randomUUID()` and `Math.random()` with `SolidActions.randomUUID()` — the SDK's durable UUID primitive.
-   - If you need a non-deterministic operation with no SDK primitive (e.g., calling an external API, generating a non-UUID random string), wrap it inside a `SolidActions.runStep(...)` body so its output is captured for replay.
-   - *Why: workflows replay on resume; non-deterministic values outside steps cause divergence and broken state.*
+1. **Determinism: SDK primitives at workflow scope, native APIs inside a `runStep` body.**
+   - **At workflow scope** (outside any `runStep`): replace `Date.now()` with `SolidActions.now()` and `crypto.randomUUID()` / `Math.random()` with `SolidActions.randomUUID()`. These durable primitives record their value on first execution and return the same value on replay.
+   - **Inside a `runStep` body**: `new Date()`, `crypto.randomUUID()`, `Math.random()`, etc. are fine — the step's return value is what gets cached, so the non-determinism is contained. Using native APIs inside the step keeps the checkpoint log clean.
+   - For any other non-deterministic op with no SDK primitive (calling an external API, reading a file), wrap the call in `SolidActions.runStep(...)` so its output is captured for replay.
+   - *Why: workflows replay on resume; non-deterministic values at workflow scope cause divergence. But each call to `SolidActions.now()` / `randomUUID()` creates a visible checkpoint step — 3 primitives in a loop body = 3× step noise per iteration. Using the primitives **only for values that cross step boundaries** gets correctness without polluting `run view --steps` output.*
 
 2. **Webhooks that do work after responding: use `SolidActions.respond()` for the early response.**
    - The pattern is: call `await SolidActions.respond({ ... })` early, then continue with steps that send emails, call APIs, etc.
@@ -114,43 +114,71 @@ Verify the import names against `.solidactions/sdk-reference.md` if the SDK has 
 
 ## Recipe — Determinism
 
+Two rules, applied by **scope** of where the non-deterministic call lives:
+
 ```typescript
 import { SolidActions } from '@solidactions/sdk';
 
-// ❌ Wrong: native APIs outside any step
-const id = crypto.randomUUID();        // non-deterministic on replay
-const startedAt = Date.now();          // non-deterministic on replay
+// ── At workflow scope (outside any runStep): use SDK primitives ─────────
 
-// ✅ Right (preferred): SDK durable primitives
+// ❌ Wrong: native APIs at workflow scope diverge on replay
+const id = crypto.randomUUID();
+const startedAt = Date.now();
+
+// ✅ Right: SDK primitives record their value on first execution
 const id = await SolidActions.randomUUID();
 const startedAt = await SolidActions.now();
 
-// ✅ Right (fallback): wrap a native call inside SolidActions.runStep()
-// — use this when no SDK primitive exists (e.g., calling an external API,
-// generating a non-UUID random string).
+// ── Inside a runStep body: native APIs are fine (and quieter) ───────────
+
+// ✅ Right: native APIs inside the step. The step's return value is what
+// gets cached, so replay returns the cached output — the native call is
+// contained. This keeps the checkpoint log uncluttered.
+async function insertSubmission(email: string, message: string) {
+  const id = crypto.randomUUID();
+  const savedAt = new Date().toISOString();
+  // ... INSERT INTO submissions (...) VALUES (id, email, message, savedAt)
+  return { id, savedAt };
+}
+
+await SolidActions.runStep(
+  () => insertSubmission(email, message),
+  { name: 'insert-submission' },
+);
+
+// ── For ops with no SDK primitive: wrap in runStep ──────────────────────
 const slug = await SolidActions.runStep(() => generateCustomSlug(), {
   name: 'generate-slug',
 });
 ```
 
-Even *inside* a step body, prefer SDK primitives. `new Date()` inside a step is replay-safe today (the step's return value is cached), but it's one refactor away from silently breaking — someone moves the line out of the step and replay corruption is back. Using the primitive keeps the code safe under refactoring.
+### Step noise in loops
+
+`SolidActions.now()` and `SolidActions.randomUUID()` each create a visible checkpoint step. In a loop that uses both, you pay 3 steps per iteration instead of 1:
 
 ```typescript
-// ✅ Right (inside a step): keep using SDK primitives so the step stays
-// refactor-safe. `await SolidActions.now()` returns epoch ms; convert to
-// an ISO string with `new Date(ms).toISOString()` if you need a string.
-async function insertSubmission(email: string, message: string) {
-  const nowMs = await SolidActions.now();
-  const savedAt = new Date(nowMs).toISOString();
-  // ... INSERT INTO submissions (...) VALUES (..., savedAt) ...
-  return { savedAt };
+// ❌ Noisy: 3 steps per iteration
+for (const item of items) {
+  const id = await SolidActions.randomUUID();
+  const now = await SolidActions.now();
+  await SolidActions.runStep(() => writeItem(item, id, now), { name: `write-${item.key}` });
 }
 
-const saved = await SolidActions.runStep(
-  () => insertSubmission(email, message),
-  { name: 'insert-submission' },
-);
+// ✅ Clean: 1 step per iteration, same correctness
+for (const item of items) {
+  await SolidActions.runStep(async () => {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    return writeItem(item, id, now);
+  }, { name: `write-${item.key}` });
+}
 ```
+
+Use the SDK primitive when the value needs to **survive across** step boundaries — e.g., an ID generated up front that multiple later steps reference. When it only lives inside a single `runStep` body, native APIs are the correct choice.
+
+### Retry semantics inside a step
+
+When a step retries, any `crypto.randomUUID()` / `new Date()` calls inside the step body regenerate — the previous attempt's values are not preserved. This is usually what you want (clean idempotency: a retried write gets a fresh ID and timestamp). If you need the same value across retries of a single step, use the SDK primitive *outside* the step and pass it in.
 
 Verify primitive names against `.solidactions/sdk-reference.md` if the SDK has been updated since this skill was authored.
 
@@ -405,6 +433,87 @@ SolidActions.run(workflow);
 ```
 
 The topic argument to `getSignalUrls('approval')` must match the topic passed to `recv('approval', ...)` — signals route by topic. For more than approve/reject, use `urls.custom('some-action')` to get a URL that signals with that action name. Workflows durably resume across restarts, so timeouts of hours or days are fine.
+
+## Recipe — Calling External Services From a Step
+
+These aren't SolidActions bugs — they're first-time traps from the libraries real projects depend on inside `runStep` bodies. Each has burned an hour for someone.
+
+### LLM SDKs (Anthropic / OpenAI) — explicit `baseURL`, check `stop_reason`
+
+Two failure modes in one call site:
+
+```typescript
+import Anthropic from '@anthropic-ai/sdk';
+
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+  baseURL: 'https://api.anthropic.com',   // pass explicitly — do NOT rely on env-var fallback
+});
+
+async function extractFields(text: string) {
+  const resp = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: text }],
+  });
+
+  // Always check truncation before parsing. A response hit at max_tokens is
+  // almost always invalid JSON — parsing it first gives a cryptic SyntaxError
+  // with no hint about the real cause.
+  if (resp.stop_reason === 'max_tokens') {
+    throw new Error(`LLM response truncated at ${resp.usage?.output_tokens} tokens — raise max_tokens or shorten input`);
+  }
+
+  const block = resp.content[0];
+  if (block.type !== 'text') throw new Error(`unexpected content block: ${block.type}`);
+  return JSON.parse(block.text);
+}
+```
+
+- **Why explicit `baseURL`:** the Anthropic SDK reads `ANTHROPIC_BASE_URL` from the environment. If the runtime has one set (intentionally or by accident — seen in the wild literally set to `"base"`), the SDK will use it as the base URL and every call fails with a DNS error (`ENOTFOUND base`) that looks like a network problem, not an SDK-config problem. Passing `baseURL` in the constructor wins over the env var.
+- **Why check `stop_reason`:** a truncated response is almost always invalid JSON. Parsing it first surfaces a `SyntaxError` at an arbitrary offset; checking `stop_reason` first gives you a clear error message pointing at the real cause.
+
+### Postgres — `sslmode=require` with self-signed certs
+
+`node-postgres` prioritizes the URL's `sslmode` over the `ssl` constructor option. A URL that ends `?sslmode=require` forces full certificate verification and ignores `rejectUnauthorized: false` — which fails against self-signed cert chains (including the shared SolidActions Postgres).
+
+```typescript
+import pg from 'pg';
+
+// ❌ Silently ignored — sslmode=require in the URL wins
+new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+
+// ✅ Strip sslmode from the URL; pass ssl via constructor config instead
+function buildClientConfig(url: string): pg.ClientConfig {
+  if (url.includes('sslmode=require')) {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('sslmode');
+    return {
+      host: parsed.hostname,
+      port: parsed.port ? Number(parsed.port) : 5432,
+      database: parsed.pathname.slice(1),
+      user: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+      ssl: { rejectUnauthorized: false },
+    };
+  }
+  return { connectionString: url };
+}
+
+const client = new pg.Client(buildClientConfig(process.env.DATABASE_URL!));
+```
+
+### Postgres — type coercion quirks
+
+`node-postgres` returns some column types as JavaScript values that don't match the obvious TypeScript expectation:
+
+| Postgres type | JS value returned | Fix |
+|---|---|---|
+| `numeric` / `decimal` | **string** (preserves precision) | `Number(row.total)` — or keep as string if you need arbitrary precision |
+| `date` (no time) | **Date** object (local midnight) | `row.day.toISOString().slice(0, 10)` for an ISO date string |
+| `timestamp` / `timestamptz` | `Date` object | usually fine; use `.toISOString()` when stringifying |
+
+A TypeScript type like `{ total: number; day: string }` will compile but be wrong at runtime — template-string interpolating a Date produces `"Wed Apr 15 2026 00:00:00 GMT+0000"`, not an ISO date. Either cast in the query (`SELECT total::float8, day::text FROM ...`) or convert in JS after reading.
 
 ## Pointers
 
