@@ -447,9 +447,7 @@ workflows:
 # Deploy activates any new/changed schedules from yaml:
 solidactions project deploy my-project ./ -e production
 
-# List active schedules. Trust the "in Xh" countdown — the dashboard UI
-# may render next-run time in browser-local wall-clock while labeling it
-# "UTC"; the CLI countdown is authoritative.
+# List active schedules:
 solidactions schedule list my-project
 
 # Remove a schedule (get the ID from schedule list first):
