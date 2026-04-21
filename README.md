@@ -13,13 +13,13 @@ Working examples for [SolidActions](https://solidactions.com) workflow automatio
 # Install the CLI
 npm install -g @solidactions/cli
 
-# Initialize with your API key (prompts for workspace selection)
-solidactions init <your-api-key>
+# Authenticate with your API key (prompts for workspace selection)
+solidactions login <your-api-key>
 
 # Try the hello-world example
 cd hello-world
 npm install
-solidactions project deploy hello-world
+solidactions project deploy hello-world -e production
 solidactions run start hello-world hello-world -i '{"name": "Alice"}' -w
 ```
 

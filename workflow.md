@@ -8,7 +8,7 @@ graph TD
         S1[Create project folder] --> S2[Add CLAUDE.md to project]
         S2 --> S3["Install CLI:<br/>npm install -g @solidactions/cli"]
         S3 --> S4[Get API key from SolidActions UI]
-        S4 --> S5["Initialize:<br/>solidactions init &lt;api-key&gt;"]
+        S4 --> S5["Authenticate:<br/>solidactions login &lt;api-key&gt;"]
     end
 
     subgraph Develop["Phase 2: Develop"]
@@ -42,7 +42,7 @@ graph TD
 2. **Add CLAUDE.md** — Copy from this repo or the parent directory for AI-assisted development
 3. **Install the CLI** — `npm install -g @solidactions/cli`
 4. **Get your API key** — From the SolidActions dashboard
-5. **Initialize** — `solidactions init <api-key>` stores credentials locally
+5. **Authenticate** — `solidactions login <api-key>` stores credentials locally
 
 ### Phase 2: Develop
 
