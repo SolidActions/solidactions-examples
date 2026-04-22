@@ -13,9 +13,12 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
    - For any other non-deterministic op with no SDK primitive (calling an external API, reading a file), wrap the call in `SolidActions.runStep(...)` so its output is captured for replay.
    - *Why: workflows replay on resume; non-deterministic values at workflow scope cause divergence. But each call to `SolidActions.now()` / `randomUUID()` creates a visible checkpoint step — 3 primitives in a loop body = 3× step noise per iteration. Using the primitives **only for values that cross step boundaries** gets correctness without polluting `run view --steps` output.*
 
-2. **Webhooks that do work after responding: use `SolidActions.respond()` for the early response.**
-   - The pattern is: call `await SolidActions.respond({ ... })` early, then continue with steps that send emails, call APIs, etc.
-   - *Why: webhook callers (Stripe, GitHub, etc.) time out fast. Responding early then doing durable work in steps is the correct pattern.*
+2. **Wait-mode webhooks: `SolidActions.respond(body)` is the ONLY way to deliver a response body.**
+   - `await SolidActions.respond({ ... })` sends the HTTP body and unblocks the caller. Returning a value from the workflow function does **NOT** send anything — the runtime ignores the return value.
+   - This applies to both patterns:
+     - **Simple request-response:** call `respond(body)` then `return` (see "Wait-mode Webhook with Synchronous Response" recipe).
+     - **Early response + background work:** call `respond(body)` early, then continue with steps (see "Webhook with Early Response + Background Work" recipe).
+   - *Why: a wait-mode workflow that runs successfully but never calls `respond()` looks like `HTTP 401 {"error":"Unauthorized"}` to the caller — a misleading symptom with no auth connection, burns hours to diagnose. Webhook callers (Stripe, GitHub, etc.) also time out fast, so the early-response variant exists for when you need to keep working after sending the body.*
 
 3. **Trigger choice: default to `instant`. Use `wait` only with explicit user intent.**
    - `instant` triggers fire as soon as the event arrives — correct for ~80% of cases (form submissions, webhooks, scheduled events).
@@ -65,6 +68,68 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
 13. **`send()` / `recv()` without a topic are on a separate channel from calls with a topic.**
     - If one side calls `send(msg, 'orders')` and the other calls `recv()` with no topic, the message is never received.
     - *Why: topics are first-class channel keys, not optional tags. Default (no-topic) is its own channel.*
+
+## Recipe — Wait-mode Webhook with Synchronous Response
+
+For a simple request-response webhook (`response.mode: wait` in `solidactions.yaml`) that does fast work and returns a value to the caller. **You MUST call `SolidActions.respond(body)` — returning a value from the workflow function alone does NOT send anything to the caller.**
+
+```typescript
+import { SolidActions } from '@solidactions/sdk';
+
+interface FormatInput { markdown: string }
+
+async function transformMarkdown(md: string) {
+  // ... do the work
+  return md.toUpperCase();
+}
+
+async function formatWorkflow(input: FormatInput): Promise<void> {
+  const linkedin = await SolidActions.runStep(
+    () => transformMarkdown(input.markdown),
+    { name: 'format' },
+  );
+
+  // ✅ respond() delivers the HTTP response body.
+  await SolidActions.respond({ linkedin });
+  // Nothing to return — respond() already sent the body.
+}
+
+const workflow = SolidActions.registerWorkflow(formatWorkflow, {
+  name: 'format-linkedin',
+});
+SolidActions.run(workflow);
+```
+
+YAML:
+
+```yaml
+workflows:
+  - id: format-linkedin
+    name: Format LinkedIn Post
+    file: src/format-linkedin.ts
+    trigger: webhook
+    webhook:
+      auth: none
+      response:
+        mode: wait
+        timeout: 30
+```
+
+### Common trap — `return` instead of `respond()`
+
+```typescript
+// ❌ Workflow runs successfully but the caller gets HTTP 401 {"error":"Unauthorized"}.
+// In wait-mode the runtime does NOT read the return value as the response body.
+async function formatWorkflow(input: FormatInput) {
+  const linkedin = await SolidActions.runStep(
+    () => transformMarkdown(input.markdown),
+    { name: 'format' },
+  );
+  return { linkedin };   // silently ignored — gateway returns 401
+}
+```
+
+The 401 is misleading — there's no auth problem; the gateway has no body to return and falls through to its default error. Replace `return { linkedin }` with `await SolidActions.respond({ linkedin })` to fix.
 
 ## Recipe — Webhook with Early Response + Background Work
 

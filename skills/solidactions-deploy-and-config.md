@@ -71,12 +71,14 @@ workflows:
       auth: hmac                # hmac | basic | header | none (default: hmac)
       auth_header: X-API-Key    # Custom header name (for auth: header)
       response:
-        mode: wait              # instant (default) | wait — wait blocks until SolidActions.respond() or workflow returns
+        mode: wait              # instant (default) | wait — blocks until SolidActions.respond(body) delivers the response body
         timeout: 60             # seconds, 1-300 (default: 30); applies to wait mode
       path: hooks/my-endpoint   # Custom URL path (optional, must be unique)
 ```
 
 For a minimal webhook with all defaults, just `trigger: webhook` — no `webhook:` block needed.
+
+> **Wait-mode response delivery.** `mode: wait` delivers the HTTP body **only** via `await SolidActions.respond(body)` inside the workflow. Returning a value from the workflow function does NOT send it to the caller — the gateway will respond with `HTTP 401 {"error":"Unauthorized"}` even though the workflow ran successfully. See the `solidactions-workflow-coding` skill's "Wait-mode Webhook with Synchronous Response" recipe for the correct pattern.
 
 ### Authentication strategies (gateway-level)
 
