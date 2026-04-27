@@ -308,48 +308,80 @@ solidactions env set my-project DATABASE_URL "postgres://sandbox-db/..." -s -e d
 # Staging still inherits from production.
 ```
 
-## Recipe — CLI Config & Environment Switching
+## Recipe — CLI Config & Workspace Switching
 
-The CLI reads host, API key, and workspace ID from three sources, in this precedence order:
+The CLI reads host, API key, and active workspace from four sources, in this precedence order:
 
-| Layer | Location | When it wins |
+| Layer | Form | When it wins |
 |---|---|---|
-| **Env vars** | `SOLIDACTIONS_HOST` / `SOLIDACTIONS_API_KEY` / `SOLIDACTIONS_WORKSPACE_ID` | Always — overrides both files |
-| **Local config** | `<project>/.solidactions/config.json` (walks up from cwd) | When set and no env var for that field |
+| **`-w` flag** | `solidactions -w <slug \| uuid \| name> <subcommand> ...` | One-off workspace override (top-level flag, must appear before the subcommand) |
+| **Env vars** | `SOLIDACTIONS_HOST` / `SOLIDACTIONS_API_KEY` / `SOLIDACTIONS_WORKSPACE_ID` | Overrides both files for the listed fields |
+| **Local config** | `<project>/.solidactions/config.json` (walks up from cwd) | When set and no env var / `-w` for that field |
 | **Global config** | `~/.solidactions/config.json` | Default fallback |
 
-Resolution is **field-by-field**: a local config can override just `workspaceId` while inheriting `host` and `apiKey` from global.
+Resolution is **field-by-field**: a local config can override `workspaceId` while inheriting `host` and `apiKey` from global.
+
+**Two flavors of local config:**
+- **Workspace pin** (most common; written by `solidactions workspace set <name> --local`) — partial file containing only `{workspace, workspaceId}`. `host` and `apiKey` keep coming from global. Use when you have one global auth identity and want a folder to default to a specific workspace.
+- **Full tenant pin** (manual) — full file with `{host, apiKey, workspaceId}`. Use when the project lives on a different SolidActions host or under a different API key entirely (e.g. e2e tenant).
 
 ### Verify which config is active
 
 ```bash
-solidactions whoami        # shows host + user; confirms which config layer the CLI is reading
+solidactions whoami
 ```
 
-### Switching between environments (e.g., e2e vs production tenants)
+Shows host, user, and active workspace as `<slug> (<uuid>) (from <source>)`. Source is one of `-w flag`, `local pin`, or `global config`. Example:
 
-Three canonical patterns, pick the one that matches your workflow:
+```
+Host:      https://app.solidactions.com
+User:      you@example.com
+Workspace: production-tenant (019d344f-589a-44f4-a509-fd00ae992487) (from local pin)
+```
 
-**1. Per-project local config (recommended for projects pinned to one tenant):**
+### Switching workspaces (same host, same API key)
+
+**Per-folder pin (recommended for projects that live in one workspace):**
 
 ```bash
-# Inside the project directory, create a local config:
+cd my-project
+solidactions workspace set production-tenant --local
+# Writes ./.solidactions/config.json with {workspace, workspaceId}.
+# CLI prompts to add `.solidactions/` to .gitignore on first run — accept it.
+```
+
+Every CLI call from within the directory now uses `production-tenant` until the file is removed or overridden with `-w`.
+
+**One-off `-w` override (for ad-hoc cross-workspace work):**
+
+```bash
+solidactions -w second-workspace project list
+solidactions -w 019d344f-589a-44f4-a509-fd00ae992487 run list my-project
+solidactions -w "Second Workspace" project deploy foo ./ -e production
+```
+
+`-w` accepts a slug, UUID, or workspace name. The CLI resolves slug/name → UUID once per invocation via `/api/v1/workspaces` (no cache file). `-w` is a **top-level flag** — put it immediately after `solidactions`, before the subcommand. Per-subcommand flags (e.g. `schedule set ... -w <workflow-id>`) reuse the same letter for a different concept; top-level vs. post-subcommand position is what disambiguates them.
+
+### Switching tenants (different host or different API key)
+
+For the e2e-vs-prod case, or any time you need a fully separate identity:
+
+**Manual full local config:**
+
+```bash
 mkdir -p .solidactions
 cat > .solidactions/config.json <<'JSON'
 {
   "host": "https://e2e.solidactions.example",
   "apiKey": "sa-live-...",
-  "workspaceId": "ws_e2e_123"
+  "workspaceId": "019d344f-589a-44f4-a509-fd00ae992487"
 }
 JSON
 
-# Gitignore it — it holds an API key:
-echo '.solidactions/config.json' >> .gitignore
+echo '.solidactions/' >> .gitignore
 ```
 
-Every CLI call from within the project now uses the local config, regardless of what `~/.solidactions/config.json` says.
-
-**2. One-off env var override (for quick switches without touching files):**
+**One-off env var override (scripts, CI):**
 
 ```bash
 SOLIDACTIONS_HOST=https://e2e.solidactions.example \
@@ -357,16 +389,28 @@ SOLIDACTIONS_API_KEY=sa-live-... \
 solidactions run list my-project
 ```
 
-**3. Global config swap (only when you rarely switch):**
+**Global swap via `login` (rarely-changing default tenant):**
 
 ```bash
 solidactions login <api-key-for-new-tenant>     # rewrites ~/.solidactions/config.json
 ```
 
+### Project slugs are workspace-scoped
+
+Two different workspaces can each own a project named `foo`. The CLI resolves a slug against your **active** workspace (whatever `whoami` reports), not globally. If `project deploy foo ./` is run while the slug exists in some other workspace but not yours, the CLI surfaces:
+
+```
+Project 'foo' not found in your active workspace 'e2e-workspace'.
+Did you mean to switch workspaces? Run 'solidactions workspace set <name> --local' to pin this directory.
+```
+
+This hint fires today on `project deploy`. Other commands (`env list/set`, `schedule list`, `webhook list`) still emit older 404 messages without the hint — tracked as a follow-up.
+
 ### Anti-patterns
 
-- **Don't `cp config.json.backup config.json` between runs.** That's a symptom of missing the local-config layer — use pattern 1 or 2 instead. If you see a project repeatedly reverting to a different tenant mid-session, check for a local `.solidactions/config.json` one of your ancestor directories might own (the CLI walks up from cwd).
-- **Don't commit `.solidactions/config.json` to git** — it holds an API key. The path is already a common `.gitignore` entry; confirm it.
+- **Don't `cp config.json.backup config.json` between runs.** Use `-w` for one-off switches or `workspace set --local` for sticky per-folder pins.
+- **Don't manually craft `.solidactions/config.json` just to switch workspaces** — `workspace set --local` does it correctly. Manual files risk the legacy slug/UUID-mismatch trap, where a partial hand-written file lacks the `workspace` slug and `whoami` then displays a slug from one layer with a UUID from another. API calls still use the correct UUID, but the display is wrong.
+- **Don't commit `.solidactions/config.json` to git.** Even the partial workspace-pin form is tenant-identifying; the full tenant-pin form holds your API key. The CLI prompts to add `.solidactions/` to `.gitignore` on first `workspace set --local`.
 
 ## Recipe — Custom Webhook Auth (fallback only)
 
