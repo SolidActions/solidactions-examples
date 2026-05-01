@@ -22,7 +22,7 @@ When a tenant connects a third-party service through the SolidActions UI, the wo
 A call to a third-party API is **always** a `fetch` against the proxy:
 
 ```
-${SA_PROXY_URL}/<platform-slug>/<upstream-path>
+${SA_PROXY_URL}/<platform-slug>/<path-from-catalog>
 ```
 
 with these two headers (added on top of whatever the upstream API requires):
@@ -30,7 +30,9 @@ with these two headers (added on top of whatever the upstream API requires):
 - `Authorization: Bearer ${SA_PROXY_TOKEN}` — proves the request comes from a live workflow run
 - `X-SA-Connection: ${process.env.<CONNECTION_NAME>}` — tells the proxy which provider connection to attach
 
-The proxy validates the token, looks up the connection, attaches the real OAuth credentials, resolves your upstream path to a Pica action via suffix-match, and forwards to the provider.
+The proxy validates the token, looks up the connection, attaches the real OAuth credentials, resolves your path to a Pica action via suffix-match, and forwards to the provider.
+
+> **Path prefixes vary by provider.** Some catalog `path` fields keep the upstream API version (Gmail: `/gmail/v1/users/.../messages/send`); others drop it (Google Calendar: `/calendars/{{calendarId}}/events`, no `/calendar/v3/`); custom modifiers use a non-RESTful slug (`/gmail/get-emails`). All three forms work. **Use the `path` field verbatim** — the proxy resolves whatever shape Pica stored. Do not strip or add prefixes based on training-memory of the upstream API.
 
 ## What the Proxy Handles Automatically
 
@@ -64,6 +66,24 @@ solidactions oauth-actions list gmail --limit 50
 # 3. Get full schema + paste-ready snippet for one action.
 solidactions oauth-actions show gmail conn_mod_def::GJ3odhCpd3I::gujvYoneSk6NFWltse9bGg --json
 ```
+
+For very chatty actions, the `--json` output of `show` can be 30+ KB — too large to read whole, and may be truncated by some shell environments. Pipe through `jq` to pull just the field you need:
+
+```bash
+# Just the example body shape (the highest-value field for writing the call):
+solidactions oauth-actions show gmail <action_id> --json | jq '.io_schema.ioExample.input.body'
+
+# Just the description, to confirm the action does what you think:
+solidactions oauth-actions show gmail <action_id> --json | jq -r '.io_schema.inputSchema.description'
+
+# Path placeholders + their example values:
+solidactions oauth-actions show gmail <action_id> --json | jq '.io_schema.ioExample.input.path'
+
+# Required body fields (per inputSchema), to validate before calling:
+solidactions oauth-actions show gmail <action_id> --json | jq '.io_schema.inputSchema.properties.body.required'
+```
+
+The human-mode (no `--json`) output of `show` already pretty-prints these sections plus a paste-ready `fetch` snippet — that's usually the fastest read for "just write the workflow."
 
 The `--json` output of `show` contains:
 
@@ -119,7 +139,7 @@ const res = await fetch(
 const data = await res.json();
 ```
 
-The double `gmail/gmail/v1/` is **correct**: the first `gmail` is the platform slug; `gmail/v1/...` is the literal upstream Gmail API path. The proxy resolves both as one routing decision.
+The URL is mechanically `${SA_PROXY_URL}/<platform-slug>${path}` where `path` comes verbatim from the catalog. For Gmail's `path: /gmail/v1/users/{{userId}}/messages/send` that produces a double `gmail/gmail/v1/...` — that's expected (the platform slug and the upstream path both happen to start with `gmail`). For other providers it won't double up. See "Custom Modifier Actions vs Raw Upstream Actions" below for the parallel modifier example.
 
 ### 3. Iterate
 
@@ -133,6 +153,18 @@ Pica catalog entries come in two flavors. They look slightly different and the b
 - **Custom modifier**: path uses a non-RESTful slug (e.g. `POST /gmail/get-emails`, `POST /slack/send-message`). Body includes a `connectionKey` field that the proxy rewrites. Modifier actions often resolve N upstream calls into one, returning fully-hydrated data instead of stub IDs.
 
 Prefer custom modifiers when both exist — they're human-verified by Pica and hide the multi-call dance (e.g. `gmail/get-emails` returns full message bodies; the raw `GET /gmail/v1/users/me/messages` returns only `{id, threadId}` stubs and would require a follow-up `messages.get` per email).
+
+The URL shape is the same for both flavors — just `path` differs:
+
+```ts
+// Raw upstream — path: /gmail/v1/users/{{userId}}/messages/send
+fetch(`${process.env.SA_PROXY_URL}/gmail/gmail/v1/users/${userId}/messages/send`, ...);
+
+// Custom modifier — path: /gmail/get-emails
+fetch(`${process.env.SA_PROXY_URL}/gmail/gmail/get-emails`, ...);
+```
+
+Both URLs read as `${SA_PROXY_URL}/<platform-slug>${path}`. The double-slug (`gmail/gmail/...`) is a coincidence of Gmail's catalog `path` field starting with `/gmail/`; for Google Calendar (`path: /calendars/...`) the URL is `${SA_PROXY_URL}/google-calendar/calendars/...` — no double-slug.
 
 ## Common Mistakes
 
