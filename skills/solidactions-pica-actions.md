@@ -9,6 +9,7 @@ description: Use when the user wants to call a third-party API (Gmail, Google Ca
 - **Always discover the right endpoint via `solidactions oauth-actions show <platform> <action_id> --json` before writing the call.** Do not infer a request body from prose, an inputSchema's `properties`/`required`, or memory of the upstream API. *Why: the catalog returns `io_schema.ioExample.input.body` — a real, working example body. Substituting values into that shape is reliable; reconstructing it from JSON Schema is not.*
 - **Substitute path placeholders, do not strip them.** The action `path` field uses `{{name}}` (double-brace) — leave the surrounding path intact and replace each placeholder with your value. *Why: the proxy suffix-matches the request path against the catalog's stored Pica template; truncating the leading API-version segment is brittle, and a full path always resolves cleanly.*
 - **Map every connection in `solidactions.yaml` under `env:`** before referencing `process.env.<NAME>` in code. *Why: an unmapped `process.env.GMAIL` is `undefined` at runtime — the proxy rejects requests with a missing `X-SA-Connection` header, so this surfaces as a 401/422 from the proxy instead of from Gmail and is hard to debug.*
+- **For custom modifier actions, copy `connectionKey` from `ioExample.input.body` verbatim — including the literal `live::<platform>::default::your-connection-key` placeholder.** *Why: Pica's modifier endpoints (e.g. `POST /gmail/get-emails`) require `connectionKey` in the request body. The proxy rewrites this value server-side using the real connection key resolved from your `X-SA-Connection` header — so the placeholder you paste is what reaches Pica, but the real key is what Pica sees.*
 
 ## Mental Model
 
@@ -30,6 +31,24 @@ with these two headers (added on top of whatever the upstream API requires):
 - `X-SA-Connection: ${process.env.<CONNECTION_NAME>}` — tells the proxy which provider connection to attach
 
 The proxy validates the token, looks up the connection, attaches the real OAuth credentials, resolves your upstream path to a Pica action via suffix-match, and forwards to the provider.
+
+## What the Proxy Handles Automatically
+
+The catalog documents the **upstream** contract — what Pica/the provider expects. The SolidActions proxy is a translation layer that handles several pieces *for you*, so they should never appear in your workflow code:
+
+| Concern | Who sets it | Where it goes |
+|---|---|---|
+| `Authorization: Bearer <SA_PROXY_TOKEN>` | You (the workflow) | Header — proves the request is from a live run |
+| `X-SA-Connection: <UUID handle>` | You (`process.env.<NAME>`) | Header — tells the proxy which connection to use |
+| Real OAuth access token / refresh | Proxy | Attached upstream as `Authorization`, `x-api-key`, etc. |
+| `x-pica-secret`, `x-one-secret`, `X-One-Connection-Key` | Proxy | Pica-internal headers attached upstream |
+| `connectionKey` body field (custom modifiers only) | Proxy | Rewrites your placeholder to the real key |
+
+What this means in practice:
+
+- **Do not add `x-pica-*` or `x-one-*` headers in your workflow.** The catalog response strips these from `ioExample.input.headers`, but if you ever see them documented elsewhere, ignore them.
+- **Do not replace the catalog's literal `connectionKey` value with `process.env.GMAIL`.** They are different things — the env var is a public UUID handle; `connectionKey` is a Pica-internal `live::<platform>::default::<key>` string. The proxy translates between them.
+- **Do not put your connection handle in the `Authorization` header.** That's where the run token (`SA_PROXY_TOKEN`) goes; the connection handle goes in `X-SA-Connection`.
 
 ## Discovery Flow
 
@@ -53,7 +72,7 @@ The `--json` output of `show` contains:
 - `io_schema.inputSchema.description` — what the action does (read this first)
 - `io_schema.ioExample.input.path` — example values for path placeholders
 - `io_schema.ioExample.input.query` — example query string parameters (if any)
-- `io_schema.ioExample.input.headers` — provider-required headers (the proxy adds Authorization + X-SA-Connection on top)
+- `io_schema.ioExample.input.headers` — provider-required headers like `Accept` and `Content-Type` (the catalog response strips proxy-managed headers; what's left is what *you* must send on top of `Authorization` + `X-SA-Connection`)
 - `io_schema.ioExample.input.body` — **the request body shape, with example values inlined.** Substitute your data into this; do not rebuild from `inputSchema`
 - `io_schema.ioExample.output` — example response
 
@@ -106,12 +125,23 @@ The double `gmail/gmail/v1/` is **correct**: the first `gmail` is the platform s
 
 If the call returns 4xx, re-run `oauth-actions show <platform> <action_id> --json` and check `io_schema.inputSchema` (under `path`/`query`/`body`) for required fields you missed or constrained values (`const`, `enum`) you violated.
 
+## Custom Modifier Actions vs Raw Upstream Actions
+
+Pica catalog entries come in two flavors. They look slightly different and the body shape differs.
+
+- **Raw upstream**: path mirrors the provider's API (e.g. `POST /gmail/v1/users/{{userId}}/messages/send`). Body matches the upstream API verbatim. No `connectionKey` field.
+- **Custom modifier**: path uses a non-RESTful slug (e.g. `POST /gmail/get-emails`, `POST /slack/send-message`). Body includes a `connectionKey` field that the proxy rewrites. Modifier actions often resolve N upstream calls into one, returning fully-hydrated data instead of stub IDs.
+
+Prefer custom modifiers when both exist — they're human-verified by Pica and hide the multi-call dance (e.g. `gmail/get-emails` returns full message bodies; the raw `GET /gmail/v1/users/me/messages` returns only `{id, threadId}` stubs and would require a follow-up `messages.get` per email).
+
 ## Common Mistakes
 
 - **Importing a provider SDK.** `import { google } from 'googleapis'` will fail at runtime — there is no token to give it. Always `fetch` against `SA_PROXY_URL`.
 - **Hardcoding a fallback URL.** `process.env.SA_PROXY_URL || 'https://app.solidactions.com/api/v1/proxy'` defeats local-dev: in local-dev runs the proxy URL points at a tunnel, and the fallback hides misconfiguration. Let `SA_PROXY_URL` fail loudly if missing.
 - **Sending the connection UUID as a Bearer token.** `Authorization: Bearer ${process.env.GMAIL}` is wrong — the connection handle goes in `X-SA-Connection`, the proxy run token goes in `Authorization`.
 - **Substituting `{{userId}}` literally into the URL.** This is a placeholder syntax in the catalog, not a runtime template. Replace it with the actual value (or a JS template-literal slot like `${userId}`) before calling.
+- **Replacing `connectionKey` in a modifier body with `process.env.GMAIL`.** Leave the catalog's literal value (`live::gmail::default::your-connection-key`) alone — the proxy rewrites it from your `X-SA-Connection` header. Substituting the env var sends the wrong format and Pica rejects it.
+- **Adding `x-pica-secret` or `x-one-*` headers to your fetch.** The proxy injects these server-side. They should not appear in workflow code; the catalog response no longer surfaces them in header examples.
 
 ## Updating This Skill
 
