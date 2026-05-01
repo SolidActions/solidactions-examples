@@ -141,6 +141,40 @@ const data = await res.json();
 
 The URL is mechanically `${SA_PROXY_URL}/<platform-slug>${path}` where `path` comes verbatim from the catalog. For Gmail's `path: /gmail/v1/users/{{userId}}/messages/send` that produces a double `gmail/gmail/v1/...` — that's expected (the platform slug and the upstream path both happen to start with `gmail`). For other providers it won't double up. See "Custom Modifier Actions vs Raw Upstream Actions" below for the parallel modifier example.
 
+#### GET endpoints — query params, not a body
+
+GET actions put parameters in the URL query string instead of a request body. Use `URLSearchParams` to assemble it; values come straight from `io_schema.ioExample.input.query`.
+
+```ts
+// src/upcoming-events.ts — GET /calendars/{{calendarId}}/events
+const calendarId = 'primary';
+const now = new Date();
+const sevenDaysOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+const params = new URLSearchParams({
+  timeMin: now.toISOString(),
+  timeMax: sevenDaysOut.toISOString(),
+  singleEvents: 'true',     // expand recurring events into individual instances
+  orderBy: 'startTime',
+  maxResults: '50',
+});
+
+const res = await fetch(
+  `${process.env.SA_PROXY_URL}/google-calendar/calendars/${calendarId}/events?${params}`,
+  {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.SA_PROXY_TOKEN}`,
+      'X-SA-Connection': process.env.GOOGLE_CALENDAR,
+      'Accept': 'application/json',
+    },
+  }
+);
+const data = await res.json();
+```
+
+For repeated query keys (arrays in `ioExample.input.query`, e.g. `eventTypes: ["default", "outOfOffice"]`), call `params.append('eventTypes', 'default')` per element rather than passing an array — that's what the upstream APIs and the proxy expect. The paste-ready snippet from `oauth-actions show` already emits this pattern.
+
 ### 3. Iterate
 
 If the call returns 4xx, re-run `oauth-actions show <platform> <action_id> --json` and check `io_schema.inputSchema` (under `path`/`query`/`body`) for required fields you missed or constrained values (`const`, `enum`) you violated.
