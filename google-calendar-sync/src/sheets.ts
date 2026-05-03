@@ -1,9 +1,8 @@
 /**
- * Google Sheets helper functions for synced event tracking.
+ * Google Sheets helpers — calls go through the SolidActions OAuth proxy.
  * Replaces PostgreSQL with a Google Sheet as the data store.
  */
 
-import { google, sheets_v4 } from "googleapis";
 import type { SyncedEventRecord, PendingSheetInsert, PendingSheetUpdate } from "./types.js";
 
 const SHEET_NAME = "synced_events";
@@ -21,24 +20,86 @@ const HEADERS = [
   "last_checked",
 ];
 
-/** Create a Google Sheets API client from an OAuth access token. */
-export function getSheetClient(token: string): sheets_v4.Sheets {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: token });
-  return google.sheets({ version: "v4", auth });
+/** Catalog action IDs for the Google Sheets endpoints we call.
+ * Refresh with `solidactions oauth-actions search google-sheets <query>`. */
+const ACTION = {
+  getSpreadsheet: "conn_mod_def::GJ30jpJCuBA::-7kldtebSUeO7_FYtT48JQ",
+  getValues: "conn_mod_def::GJ30lYkSqLk::IOnDiKqfQ_2FtFCahohidA",
+  updateValues: "conn_mod_def::GJ30lisycVw::Lt4ggUnqQ7yQ3yrqhNpp3Q",
+  appendValues: "conn_mod_def::GJ30kKk8ogk::hCE5XVrgQ3m0ip3lGzJRfQ",
+  batchUpdateValues: "conn_mod_def::GJ30k7Vqavo::zEU1ntnYTCiWrupKRe1Pig",
+  batchUpdateSpreadsheet: "conn_mod_def::GJ30jCATCJk::uk1gxM57RXy-ciDvxCQvQQ",
+} as const;
+
+interface ProxyOpts {
+  actionId: string;
+  query?: Record<string, string | number | boolean | undefined>;
+  body?: unknown;
+}
+
+async function sheetsProxy(method: string, path: string, opts: ProxyOpts): Promise<Response> {
+  const base = process.env.SA_PROXY_URL;
+  const token = process.env.SA_PROXY_TOKEN;
+  const connectionKey = process.env.GSHEET;
+  if (!base || !token || !connectionKey) {
+    throw new Error(
+      `Missing proxy env: SA_PROXY_URL=${!!base} SA_PROXY_TOKEN=${!!token} GSHEET=${!!connectionKey}`,
+    );
+  }
+
+  let url = `${base}/google-sheets${path}`;
+  if (opts.query) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(opts.query)) {
+      if (v !== undefined && v !== null) params.append(k, String(v));
+    }
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "X-OAuth-Connection-Key": connectionKey,
+    "X-OAuth-Action-Id": opts.actionId,
+    Accept: "application/json",
+  };
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+
+  return fetch(url, {
+    method,
+    headers,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
+}
+
+async function sheetsJson<T>(method: string, path: string, opts: ProxyOpts): Promise<T> {
+  const res = await sheetsProxy(method, path, opts);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(
+      `Google Sheets ${method} ${path} failed: ${res.status} ${text.slice(0, 500)}`,
+    );
+  }
+  return text ? (JSON.parse(text) as T) : ({} as T);
+}
+
+interface SpreadsheetMeta {
+  sheets?: Array<{ properties?: { sheetId?: number; title?: string } }>;
+}
+
+interface ValueRangeResponse {
+  values?: string[][];
 }
 
 /** Load all synced event records from the spreadsheet. */
-export async function loadSyncedEvents(
-  sheets: sheets_v4.Sheets,
-  spreadsheetId: string,
-): Promise<SyncedEventRecord[]> {
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A:K`,
-  });
+export async function loadSyncedEvents(spreadsheetId: string): Promise<SyncedEventRecord[]> {
+  const data = await sheetsJson<ValueRangeResponse>(
+    "GET",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A:K`)}`,
+    { actionId: ACTION.getValues },
+  );
 
-  const rows = response.data.values ?? [];
+  const rows = data.values ?? [];
   if (rows.length <= 1) return []; // Only header or empty
 
   return rows
@@ -62,38 +123,39 @@ export async function loadSyncedEvents(
 
 /** Insert a new synced event record by appending a row. */
 export async function insertSyncedEvent(
-  sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   record: Omit<SyncedEventRecord, "id" | "created_at" | "last_updated" | "last_checked">,
 ): Promise<void> {
   const now = new Date().toISOString();
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A:K`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [
-        [
-          record.primary_calendar,
-          record.primary_event_id,
-          record.secondary_calendar,
-          record.secondary_event_id,
-          record.event_summary,
-          record.event_start,
-          record.event_end,
-          record.event_signature,
-          now,
-          now,
-          now,
+  await sheetsJson(
+    "POST",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A:K`)}:append`,
+    {
+      actionId: ACTION.appendValues,
+      query: { valueInputOption: "RAW" },
+      body: {
+        values: [
+          [
+            record.primary_calendar,
+            record.primary_event_id,
+            record.secondary_calendar,
+            record.secondary_event_id,
+            record.event_summary,
+            record.event_start,
+            record.event_end,
+            record.event_signature,
+            now,
+            now,
+            now,
+          ],
         ],
-      ],
+      },
     },
-  });
+  );
 }
 
 /** Update an existing synced event record by finding the matching row. */
 export async function updateSyncedEvent(
-  sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
@@ -104,97 +166,90 @@ export async function updateSyncedEvent(
     event_end: string;
   },
 ): Promise<void> {
-  // Re-scan to get current row index
-  const records = await loadSyncedEvents(sheets, spreadsheetId);
+  const records = await loadSyncedEvents(spreadsheetId);
   const record = records.find(
-    (r) =>
-      r.primary_event_id === primaryEventId &&
-      r.primary_calendar === primaryCalendar,
+    (r) => r.primary_event_id === primaryEventId && r.primary_calendar === primaryCalendar,
   );
   if (!record) return;
 
   const now = new Date().toISOString();
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A${record.id}:K${record.id}`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [
-        [
-          record.primary_calendar,
-          record.primary_event_id,
-          record.secondary_calendar,
-          record.secondary_event_id,
-          updates.event_summary,
-          updates.event_start,
-          updates.event_end,
-          updates.event_signature,
-          record.created_at,
-          now,
-          now,
+  await sheetsJson(
+    "PUT",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A${record.id}:K${record.id}`)}`,
+    {
+      actionId: ACTION.updateValues,
+      query: { valueInputOption: "RAW" },
+      body: {
+        values: [
+          [
+            record.primary_calendar,
+            record.primary_event_id,
+            record.secondary_calendar,
+            record.secondary_event_id,
+            updates.event_summary,
+            updates.event_start,
+            updates.event_end,
+            updates.event_signature,
+            record.created_at,
+            now,
+            now,
+          ],
         ],
-      ],
+      },
     },
-  });
+  );
 }
 
 /** Delete a synced event record by finding and removing the row. */
 export async function deleteSyncedEvent(
-  sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
 ): Promise<void> {
-  // Re-scan to get current row index (handles prior deletions shifting rows)
-  const records = await loadSyncedEvents(sheets, spreadsheetId);
+  const records = await loadSyncedEvents(spreadsheetId);
   const record = records.find(
-    (r) =>
-      r.primary_event_id === primaryEventId &&
-      r.primary_calendar === primaryCalendar,
+    (r) => r.primary_event_id === primaryEventId && r.primary_calendar === primaryCalendar,
   );
   if (!record) return;
 
-  // Get sheet ID for the deleteDimension request
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheet = spreadsheet.data.sheets?.find(
-    (s) => s.properties?.title === SHEET_NAME,
-  );
-  const sheetId = sheet?.properties?.sheetId ?? 0;
+  const sheetId = await getSheetId(spreadsheetId);
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: record.id - 1, // 0-indexed
-              endIndex: record.id, // exclusive
+  await sheetsJson(
+    "POST",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+    {
+      actionId: ACTION.batchUpdateSpreadsheet,
+      body: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: "ROWS",
+                startIndex: record.id - 1,
+                endIndex: record.id,
+              },
             },
           },
-        },
-      ],
+        ],
+      },
     },
-  });
+  );
 }
 
 /** Get the numeric sheet ID for the synced_events sheet. */
-export async function getSheetId(
-  sheets: sheets_v4.Sheets,
-  spreadsheetId: string,
-): Promise<number> {
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheet = spreadsheet.data.sheets?.find(
-    (s) => s.properties?.title === SHEET_NAME,
+export async function getSheetId(spreadsheetId: string): Promise<number> {
+  const data = await sheetsJson<SpreadsheetMeta>(
+    "GET",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}`,
+    { actionId: ACTION.getSpreadsheet },
   );
+  const sheet = data.sheets?.find((s) => s.properties?.title === SHEET_NAME);
   return sheet?.properties?.sheetId ?? 0;
 }
 
 /** Batch insert multiple synced event records in a single append call. */
 export async function batchInsertSyncedEvents(
-  sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   records: PendingSheetInsert[],
 ): Promise<void> {
@@ -215,17 +270,19 @@ export async function batchInsertSyncedEvents(
     now,
   ]);
 
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A:K`,
-    valueInputOption: "RAW",
-    requestBody: { values },
-  });
+  await sheetsJson(
+    "POST",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A:K`)}:append`,
+    {
+      actionId: ACTION.appendValues,
+      query: { valueInputOption: "RAW" },
+      body: { values },
+    },
+  );
 }
 
 /** Batch update multiple synced event records in a single batchUpdate call. */
 export async function batchUpdateSyncedEvents(
-  sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   updates: PendingSheetUpdate[],
 ): Promise<void> {
@@ -251,15 +308,18 @@ export async function batchUpdateSyncedEvents(
     ],
   }));
 
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: { valueInputOption: "RAW", data },
-  });
+  await sheetsJson(
+    "POST",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values:batchUpdate`,
+    {
+      actionId: ACTION.batchUpdateValues,
+      body: { valueInputOption: "RAW", data },
+    },
+  );
 }
 
 /** Batch delete rows by index in a single batchUpdate call. Deletes in reverse order. */
 export async function batchDeleteSyncedEventRows(
-  sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   sheetId: number,
   rowIds: number[],
@@ -274,86 +334,92 @@ export async function batchDeleteSyncedEventRows(
       range: {
         sheetId,
         dimension: "ROWS" as const,
-        startIndex: rowId - 1, // 0-indexed
-        endIndex: rowId, // exclusive
+        startIndex: rowId - 1,
+        endIndex: rowId,
       },
     },
   }));
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests },
-  });
+  await sheetsJson(
+    "POST",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+    { actionId: ACTION.batchUpdateSpreadsheet, body: { requests } },
+  );
 }
 
 /** Ensure the sheet exists with the correct header row. Idempotent. */
-export async function initSchema(
-  sheets: sheets_v4.Sheets,
-  spreadsheetId: string,
-): Promise<void> {
-  // Check if the synced_events sheet already exists
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const existingSheet = spreadsheet.data.sheets?.find(
-    (s) => s.properties?.title === SHEET_NAME,
+export async function initSchema(spreadsheetId: string): Promise<void> {
+  const meta = await sheetsJson<SpreadsheetMeta>(
+    "GET",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}`,
+    { actionId: ACTION.getSpreadsheet },
   );
+  const existingSheet = meta.sheets?.find((s) => s.properties?.title === SHEET_NAME);
 
   if (!existingSheet) {
-    // Check if there's a default Sheet1 we can rename
-    const firstSheet = spreadsheet.data.sheets?.[0];
+    const firstSheet = meta.sheets?.[0];
     if (
       firstSheet?.properties?.title === "Sheet1" &&
-      spreadsheet.data.sheets?.length === 1
+      meta.sheets?.length === 1
     ) {
-      // Rename Sheet1 to synced_events
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [
-            {
-              updateSheetProperties: {
-                properties: {
-                  sheetId: firstSheet.properties?.sheetId,
-                  title: SHEET_NAME,
+      await sheetsJson(
+        "POST",
+        `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+        {
+          actionId: ACTION.batchUpdateSpreadsheet,
+          body: {
+            requests: [
+              {
+                updateSheetProperties: {
+                  properties: {
+                    sheetId: firstSheet.properties?.sheetId,
+                    title: SHEET_NAME,
+                  },
+                  fields: "title",
                 },
-                fields: "title",
               },
-            },
-          ],
+            ],
+          },
         },
-      });
+      );
     } else {
-      // Create a new sheet
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [
-            {
-              addSheet: {
-                properties: { title: SHEET_NAME },
+      await sheetsJson(
+        "POST",
+        `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
+        {
+          actionId: ACTION.batchUpdateSpreadsheet,
+          body: {
+            requests: [
+              {
+                addSheet: {
+                  properties: { title: SHEET_NAME },
+                },
               },
-            },
-          ],
+            ],
+          },
         },
-      });
+      );
     }
   }
 
   // Check if headers exist
-  const headerResponse = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A1:K1`,
-  });
+  const headerData = await sheetsJson<ValueRangeResponse>(
+    "GET",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A1:K1`)}`,
+    { actionId: ACTION.getValues },
+  );
 
-  const existingHeaders = headerResponse.data.values?.[0];
+  const existingHeaders = headerData.values?.[0];
   if (existingHeaders && existingHeaders[0] === HEADERS[0]) return;
 
   // Write headers
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A1:K1`,
-    valueInputOption: "RAW",
-    requestBody: {
-      values: [HEADERS],
+  await sheetsJson(
+    "PUT",
+    `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A1:K1`)}`,
+    {
+      actionId: ACTION.updateValues,
+      query: { valueInputOption: "RAW" },
+      body: { values: [HEADERS] },
     },
-  });
+  );
 }

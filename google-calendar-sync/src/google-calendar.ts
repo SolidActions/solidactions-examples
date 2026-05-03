@@ -1,21 +1,90 @@
 /**
- * Google Calendar API helper functions.
+ * Google Calendar helpers — calls go through the SolidActions OAuth proxy.
  * These are called inside SolidActions.runStep().
  */
 
-import { google, calendar_v3 } from "googleapis";
 import type { GoogleCalendarEvent } from "./types.js";
 
-/** Create a Google Calendar API client from an OAuth access token. */
-export function getCalendarClient(token: string): calendar_v3.Calendar {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: token });
-  return google.calendar({ version: "v3", auth });
+/** Body shape for create/update — accepts any subset of Google Calendar event fields. */
+export type CalendarEventBody = Record<string, unknown>;
+
+/** Catalog action IDs for the Google Calendar endpoints we call.
+ * Refresh with `solidactions oauth-actions search google-calendar <query>`. */
+const ACTION = {
+  listEvents: "conn_mod_def::GJ6RlnIYK20::YzuWSmaVQgurletRDNJavA",
+  getEvent: "conn_mod_def::GJ6RlPEQKQw::rxHzaO_TTtKVIcxgFrWUKA",
+  createEvent: "conn_mod_def::GJ6RlnjZAh4::CSya4eHtRbeXRM7PHiXuRA",
+  updateEvent: "conn_mod_def::GJ6Rl1lMBfY::eP6apV97R--3NiAAD_w36A",
+  deleteEvent: "conn_mod_def::GJ6RlN24ctU::0y6GOBuWT4ShfvJCjD3vRw",
+} as const;
+
+/** Error thrown by proxy calls; carries the upstream HTTP status as `code` to match prior behavior. */
+export class GoogleCalendarError extends Error {
+  code: number;
+  body: string;
+  constructor(status: number, body: string, message: string) {
+    super(message);
+    this.code = status;
+    this.body = body;
+  }
+}
+
+interface ProxyOpts {
+  actionId: string;
+  query?: Record<string, string | number | boolean | undefined>;
+  body?: unknown;
+}
+
+async function gcalProxy(method: string, path: string, opts: ProxyOpts): Promise<Response> {
+  const base = process.env.SA_PROXY_URL;
+  const token = process.env.SA_PROXY_TOKEN;
+  const connectionKey = process.env.GCAL;
+  if (!base || !token || !connectionKey) {
+    throw new Error(
+      `Missing proxy env: SA_PROXY_URL=${!!base} SA_PROXY_TOKEN=${!!token} GCAL=${!!connectionKey}`,
+    );
+  }
+
+  let url = `${base}/google-calendar${path}`;
+  if (opts.query) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(opts.query)) {
+      if (v !== undefined && v !== null) params.append(k, String(v));
+    }
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "X-OAuth-Connection-Key": connectionKey,
+    "X-OAuth-Action-Id": opts.actionId,
+    Accept: "application/json",
+  };
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+
+  return fetch(url, {
+    method,
+    headers,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
+}
+
+async function gcalJson<T>(method: string, path: string, opts: ProxyOpts): Promise<T> {
+  const res = await gcalProxy(method, path, opts);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new GoogleCalendarError(
+      res.status,
+      text,
+      `Google Calendar ${method} ${path} failed: ${res.status} ${text.slice(0, 500)}`,
+    );
+  }
+  return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
 /** Fetch events from a calendar within the sync window. */
 export async function fetchEvents(
-  client: calendar_v3.Calendar,
   calendarId: string,
   maxEvents: number,
   daysAhead: number,
@@ -27,60 +96,79 @@ export async function fetchEvents(
   const futureDate = new Date(now);
   futureDate.setDate(futureDate.getDate() + daysAhead);
 
-  const response = await client.events.list({
-    calendarId,
-    timeMin: yesterday.toISOString(),
-    timeMax: futureDate.toISOString(),
-    maxResults: maxEvents,
-    singleEvents: true,
-    orderBy: "startTime",
-  });
+  const data = await gcalJson<{ items?: GoogleCalendarEvent[] }>(
+    "GET",
+    `/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      actionId: ACTION.listEvents,
+      query: {
+        timeMin: yesterday.toISOString(),
+        timeMax: futureDate.toISOString(),
+        maxResults: maxEvents,
+        singleEvents: true,
+        orderBy: "startTime",
+      },
+    },
+  );
 
-  return (response.data.items ?? []) as GoogleCalendarEvent[];
+  return data.items ?? [];
+}
+
+/** Get a single event by ID. */
+export async function getEvent(
+  calendarId: string,
+  eventId: string,
+): Promise<GoogleCalendarEvent> {
+  return gcalJson<GoogleCalendarEvent>(
+    "GET",
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { actionId: ACTION.getEvent },
+  );
 }
 
 /** Create an event on a calendar. Returns the created event data. */
 export async function createEvent(
-  client: calendar_v3.Calendar,
   calendarId: string,
-  eventBody: calendar_v3.Schema$Event,
+  eventBody: CalendarEventBody,
 ): Promise<GoogleCalendarEvent> {
-  const response = await client.events.insert({
-    calendarId,
-    requestBody: eventBody,
-  });
-  return response.data as GoogleCalendarEvent;
+  return gcalJson<GoogleCalendarEvent>(
+    "POST",
+    `/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    { actionId: ACTION.createEvent, body: eventBody },
+  );
 }
 
-/** Update an existing event on a calendar. */
+/** Update an existing event on a calendar (full replace, PUT). */
 export async function updateEvent(
-  client: calendar_v3.Calendar,
   calendarId: string,
   eventId: string,
-  eventBody: calendar_v3.Schema$Event,
+  eventBody: CalendarEventBody,
 ): Promise<GoogleCalendarEvent> {
-  const response = await client.events.update({
-    calendarId,
-    eventId,
-    requestBody: eventBody,
-  });
-  return response.data as GoogleCalendarEvent;
+  return gcalJson<GoogleCalendarEvent>(
+    "PUT",
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { actionId: ACTION.updateEvent, body: eventBody },
+  );
 }
 
-/** Delete an event from a calendar. Handles 410 Gone gracefully. */
+/** Delete an event from a calendar. Swallows 410 (already deleted). */
 export async function deleteEvent(
-  client: calendar_v3.Calendar,
   calendarId: string,
   eventId: string,
 ): Promise<void> {
-  try {
-    await client.events.delete({ calendarId, eventId });
-  } catch (error: unknown) {
-    const status = (error as { code?: number }).code;
-    if (status === 410) {
-      // Event already deleted — treat as success
-      return;
-    }
-    throw error;
+  const res = await gcalProxy(
+    "DELETE",
+    `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    { actionId: ACTION.deleteEvent },
+  );
+  if (res.ok) return;
+  if (res.status === 410) {
+    return;
   }
+  const text = await res.text();
+  throw new GoogleCalendarError(
+    res.status,
+    text,
+    `Google Calendar DELETE failed: ${res.status} ${text.slice(0, 500)}`,
+  );
 }
