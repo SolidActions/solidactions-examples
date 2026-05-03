@@ -3,10 +3,12 @@
  * for the integration test workflow.
  */
 
-import { calendar_v3 } from "googleapis";
-import { getCalendarClient, deleteEvent } from "./google-calendar.js";
-import { getSheetClient, loadSyncedEvents } from "./sheets.js";
-import type { SyncedEventRecord } from "./types.js";
+import {
+  CalendarEventBody,
+  deleteEvent,
+  getEvent,
+} from "./google-calendar.js";
+import { loadSyncedEvents } from "./sheets.js";
 
 // --- Types ---
 
@@ -30,7 +32,7 @@ export interface TestReport {
 export function makeBasicTimedEvent(
   summary: string,
   hoursFromNow: number,
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const start = new Date();
   start.setHours(start.getHours() + hoursFromNow);
   const end = new Date(start);
@@ -47,7 +49,7 @@ export function makeBasicTimedEvent(
 export function makeAllDayEvent(
   summary: string,
   daysFromNow: number,
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const start = new Date();
   start.setDate(start.getDate() + daysFromNow);
   const end = new Date(start);
@@ -66,7 +68,7 @@ export function makeAllDayEvent(
 export function makeEventWithLocation(
   summary: string,
   location: string,
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const base = makeBasicTimedEvent(summary, 3);
   return { ...base, location };
 }
@@ -75,15 +77,13 @@ export function makeEventWithLocation(
 export function makeEventWithMeetLink(
   summary: string,
   hangoutLink: string,
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const base = makeBasicTimedEvent(summary, 4);
   return { ...base, hangoutLink };
 }
 
 /** Create a transparent (free/busy = free) event. */
-export function makeTransparentEvent(
-  summary: string,
-): calendar_v3.Schema$Event {
+export function makeTransparentEvent(summary: string): CalendarEventBody {
   const base = makeBasicTimedEvent(summary, 5);
   return { ...base, transparency: "transparent" };
 }
@@ -92,7 +92,7 @@ export function makeTransparentEvent(
 export function makeEventWithDescription(
   summary: string,
   description: string,
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const base = makeBasicTimedEvent(summary, 6);
   return { ...base, description };
 }
@@ -101,7 +101,7 @@ export function makeEventWithDescription(
 export function makeEventWithRooms(
   summary: string,
   roomEmails: Array<{ email: string; displayName: string }>,
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const base = makeBasicTimedEvent(summary, 7);
   return {
     ...base,
@@ -124,7 +124,7 @@ export function makeFullEvent(
     transparency?: string;
     roomEmails?: Array<{ email: string; displayName: string }>;
   },
-): calendar_v3.Schema$Event {
+): CalendarEventBody {
   const base = makeBasicTimedEvent(summary, opts.hoursFromNow ?? 8);
   return {
     ...base,
@@ -144,21 +144,20 @@ export function makeFullEvent(
 
 /** Verify an event exists on the calendar. */
 export async function assertEventExists(
-  client: calendar_v3.Calendar,
   calendarId: string,
   eventId: string,
   testName: string,
 ): Promise<TestResult> {
   try {
-    const response = await client.events.get({ calendarId, eventId });
-    if (response.data.id === eventId) {
+    const event = await getEvent(calendarId, eventId);
+    if (event.id === eventId) {
       return { phase: "verify", test: testName, status: "pass" };
     }
     return {
       phase: "verify",
       test: testName,
       status: "fail",
-      details: `Event ID mismatch: expected ${eventId}, got ${response.data.id}`,
+      details: `Event ID mismatch: expected ${eventId}, got ${event.id}`,
     };
   } catch (error: unknown) {
     return {
@@ -209,14 +208,12 @@ export function assertDescriptionContains(
 
 /** Verify a sheet record exists for a primary event. */
 export async function assertSheetRecordExists(
-  sheetToken: string,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
   testName: string,
 ): Promise<TestResult> {
-  const sheets = getSheetClient(sheetToken);
-  const records = await loadSyncedEvents(sheets, spreadsheetId);
+  const records = await loadSyncedEvents(spreadsheetId);
   const found = records.find(
     (r) =>
       r.primary_event_id === primaryEventId &&
@@ -235,14 +232,12 @@ export async function assertSheetRecordExists(
 
 /** Verify a sheet record does NOT exist for a primary event. */
 export async function assertSheetRecordMissing(
-  sheetToken: string,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
   testName: string,
 ): Promise<TestResult> {
-  const sheets = getSheetClient(sheetToken);
-  const records = await loadSyncedEvents(sheets, spreadsheetId);
+  const records = await loadSyncedEvents(spreadsheetId);
   const found = records.find(
     (r) =>
       r.primary_event_id === primaryEventId &&
@@ -280,22 +275,20 @@ export function assertNoNewSheetRecords(
 
 /** Delete a single test event, handling 410 gracefully. */
 export async function deleteTestEvent(
-  client: calendar_v3.Calendar,
   calendarId: string,
   eventId: string,
 ): Promise<void> {
-  await deleteEvent(client, calendarId, eventId);
+  await deleteEvent(calendarId, eventId);
 }
 
 /** Bulk delete test events, best-effort. */
 export async function cleanupTestEvents(
-  client: calendar_v3.Calendar,
   calendarId: string,
   eventIds: string[],
 ): Promise<void> {
   for (const eventId of eventIds) {
     try {
-      await deleteEvent(client, calendarId, eventId);
+      await deleteEvent(calendarId, eventId);
     } catch {
       // Best-effort cleanup — continue on errors
     }

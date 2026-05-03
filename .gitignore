@@ -4,6 +4,11 @@ node_modules/
 # Build output
 dist/
 
+# AI scaffolding installed per-project by `solidactions ai init`
+.claude/
+.solidactions/
+CLAUDE.md
+
 # Environment variables (keep .env.example files)
 .env
 .env.*

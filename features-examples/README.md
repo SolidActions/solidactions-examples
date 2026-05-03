@@ -19,7 +19,7 @@ This project contains 15 workflows demonstrating SolidActions SDK features. Each
 | Message Sender | `src/message-sender.ts` | Async messaging worker | `send()` |
 | Multistep Parent | `src/multistep-parent.ts` | Complex parent spawning a multi-step child | `startWorkflow()`, `getResult()` |
 | Multistep Child | `src/multistep-child.ts` | Internal child with 4 sequential steps | `registerWorkflow()`, `runStep()` |
-| OAuth Workflow | `src/oauth-workflow.ts` | OAuth connection mapping to env vars | `process.env` token access |
+| OAuth Workflow | `src/oauth-workflow.ts` | Call a third-party API (GitHub) via the OAuth-actions proxy | `${SA_PROXY_URL}/<platform>${path}` + `X-SA-Connection` |
 | Respond Test | `src/respond-test.ts` | Early webhook response before workflow completes | `respond()` |
 
 ## Setup
@@ -71,8 +71,9 @@ solidactions run start features-examples message-receiver -i '{"data": "hello wo
 # Multistep parent (spawns multistep-child with 4 steps)
 solidactions run start features-examples multistep-parent -i '{"value": 10}' -w
 
-# OAuth workflow (requires connection setup in SA UI)
-solidactions run start features-examples oauth-workflow -i '{"provider": "github"}' -w
+# OAuth workflow — calls GitHub `GET /user` via the SA proxy
+# (requires a GitHub OAuth connection mapped to project var `GITHUB` in the UI)
+solidactions run start features-examples oauth-workflow -w
 
 # Respond test (use the webhook URL directly or via CLI)
 solidactions run start features-examples respond-test -i '{"taskId": "wh-1", "data": "test data"}' -w
@@ -80,7 +81,7 @@ solidactions run start features-examples respond-test -i '{"taskId": "wh-1", "da
 
 ## Notes
 
-- **OAuth**: Requires creating a connection in the SolidActions UI and mapping the token to a project variable. See `src/oauth-workflow.ts` for setup instructions.
+- **OAuth**: Uses the OAuth-actions proxy — workflow code never sees the access token. Create a GitHub OAuth connection in the SA UI, map it to project var `GITHUB`, and the workflow calls `${SA_PROXY_URL}/github/user` with the connection handle in `X-SA-Connection`. See `src/oauth-workflow.ts` for setup details, and run `solidactions oauth-actions search github <query>` to discover other endpoints.
 - **Messaging**: The receiver triggers the sender automatically — you only need to run the receiver.
 - **Scheduled Workflow**: Requires deployment to run on its cron schedule. The schedule is configured in `solidactions.yaml`.
 - **Respond Test**: Configured with `response: wait` and `auth: none` in `solidactions.yaml` for easy testing.
