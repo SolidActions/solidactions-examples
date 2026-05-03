@@ -10,6 +10,11 @@ env:
   - SENDER_WEBHOOK_URL
   - SENDER_WEBHOOK_SECRET
 
+  # Connection handle for the OAuth proxy example (oauth-workflow.ts).
+  # Map this to a GitHub OAuth connection in the SolidActions UI — the
+  # placeholder declaration here just makes the variable visible to the project.
+  - GITHUB: GITHUB
+
 workflows:
   # Basic Patterns
 

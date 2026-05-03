@@ -1,148 +1,153 @@
 /**
- * OAuth Workflow Example
+ * OAuth Workflow Example — using the SolidActions OAuth-actions proxy.
  *
- * Demonstrates how to use OAuth tokens in a SolidActions workflow.
+ * Demonstrates how to call a third-party API (GitHub) from a workflow without
+ * touching access tokens directly. The runtime injects a connection key for
+ * each `oauth:`-mapped env var; the workflow uses it as `X-OAuth-Connection-Key`
+ * along with `X-OAuth-Action-Id` (the catalog action ID) on a fetch against
+ * `${SA_PROXY_URL}/<platform-slug>${path}`. The proxy attaches the real OAuth
+ * credentials server-side.
  *
  * Setup:
- * 1. Create an OAuth connection in the SolidActions UI (Connections page)
- * 2. Map the connection to a project variable:
- *    - Go to your project's Environment tab
- *    - Add variable, select "OAuth Connection" as source
- *    - Choose your connection and name the variable (e.g., GITHUB_TOKEN)
- * 3. The token will be injected as an environment variable at runtime
+ * 1. Create a GitHub OAuth connection in the SolidActions UI (Connections page).
+ * 2. In the project's Environment tab, add a project variable named `GITHUB`,
+ *    select "OAuth Connection" as the source, and pick the connection created
+ *    in step 1. At runtime `process.env.GITHUB` is the connection key string.
+ * 3. Discover endpoints with `solidactions oauth-actions search github <query>`
+ *    and `solidactions oauth-actions show github <action_id>` for paste-ready
+ *    request snippets. The `action_id` from `show` goes in `X-OAuth-Action-Id`.
  *
- * OAuth tokens are fetched fresh from Nango on every workflow execution,
- * so you always have a valid, non-expired token.
+ * Required env vars at runtime (auto-injected by the worker — do not set them
+ * yourself):
+ * - `SA_PROXY_URL`   — base URL of the proxy
+ * - `SA_PROXY_TOKEN` — short-lived bearer token, rotated per run
+ *
+ * Never import a provider SDK (`@octokit/rest`, `googleapis`, etc.) — those
+ * expect a raw access token, which workflow code never sees.
  */
 
 import { SolidActions } from '@solidactions/sdk';
 
 interface OAuthWorkflowInput {
-  provider?: string;
-  testEndpoint?: string;
+  // Reserved for future use (e.g., choosing a different action). Currently the
+  // workflow always calls `GET /user` so it works with any GitHub connection.
+  _placeholder?: string;
 }
 
 interface OAuthWorkflowResult {
   success: boolean;
-  provider: string;
-  tokenFound: boolean;
+  connectionFound: boolean;
   apiTestResult?: {
     statusCode: number;
     success: boolean;
+    login?: string;
     message: string;
   };
   error?: string;
 }
 
-/**
- * Check for OAuth token in environment variables.
- *
- * Token naming convention:
- * - If you map to env name "MY_TOKEN", it will be available as process.env.MY_TOKEN
- * - Common patterns: GITHUB_TOKEN, SLACK_TOKEN, GOOGLE_TOKEN, etc.
- */
-async function checkOAuthToken(envVarName: string) {
-  const token = process.env[envVarName];
-
-  if (token) {
-    // Log masked version for debugging (never log full tokens!)
-    const masked = token.substring(0, 8) + '...' + token.substring(token.length - 4);
-    console.log(`[oauth-workflow] Found ${envVarName}: ${masked}`);
-    return { found: true, token };
-  } else {
-    console.log(`[oauth-workflow] ${envVarName} not found in environment`);
-    return { found: false, token: null };
-  }
+interface GitHubUser {
+  login: string;
+  id: number;
+  name?: string;
 }
 
-/**
- * Test the OAuth token by making an API call.
- * This example uses GitHub's API, but you can adapt for any provider.
- */
-async function testOAuthToken(token: string, endpoint: string) {
-  console.log(`[oauth-workflow] Testing token against: ${endpoint}`);
+/** Action ID for GitHub `Get the Authenticated User`.
+ * Refresh with `solidactions oauth-actions search github "get authenticated user"`. */
+const GITHUB_GET_USER_ACTION_ID = 'conn_mod_def::GJ3abVwgSnA::upr7Ot0XTcSv1ZI7n9NIWQ';
+
+/** Call GitHub `GET /user` through the SolidActions proxy. */
+async function callGetUser(): Promise<{
+  statusCode: number;
+  success: boolean;
+  login?: string;
+  message: string;
+}> {
+  const base = process.env.SA_PROXY_URL;
+  const proxyToken = process.env.SA_PROXY_TOKEN;
+  const connectionKey = process.env.GITHUB;
+
+  if (!base || !proxyToken || !connectionKey) {
+    return {
+      statusCode: 0,
+      success: false,
+      message:
+        `Missing runtime env: SA_PROXY_URL=${!!base} SA_PROXY_TOKEN=${!!proxyToken} GITHUB=${!!connectionKey}. ` +
+        'Map a GitHub OAuth connection to a project variable named `GITHUB`.',
+    };
+  }
+
+  // URL pattern: ${SA_PROXY_URL}/<platform-slug>${catalog-path}
+  // For GitHub `Get the Authenticated User` the catalog path is `/user`.
+  const url = `${base}/github/user`;
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        // Identifies the run to the proxy (NOT the upstream OAuth token).
+        Authorization: `Bearer ${proxyToken}`,
+        // Identifies the connection the proxy should attach upstream.
+        'X-OAuth-Connection-Key': connectionKey,
+        // Identifies the catalog action being invoked — required, the proxy
+        // routes solely on this header value.
+        'X-OAuth-Action-Id': GITHUB_GET_USER_ACTION_ID,
         Accept: 'application/json',
-        'User-Agent': 'SolidActions-OAuth-Test',
       },
     });
 
-    const statusCode = response.status;
-    const success = response.ok;
-
-    if (success) {
-      console.log(`[oauth-workflow] API call successful (${statusCode})`);
-      return { statusCode, success, message: 'Token is valid and working' };
-    } else {
+    if (!response.ok) {
       const errorText = await response.text();
-      console.log(`[oauth-workflow] API call failed (${statusCode}): ${errorText.substring(0, 100)}`);
-      return { statusCode, success, message: `API returned ${statusCode}` };
+      return {
+        statusCode: response.status,
+        success: false,
+        message: `Proxy returned ${response.status}: ${errorText.slice(0, 200)}`,
+      };
     }
+
+    const user = (await response.json()) as GitHubUser;
+    return {
+      statusCode: response.status,
+      success: true,
+      login: user.login,
+      message: `Authenticated as ${user.login}`,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.log(`[oauth-workflow] API call error: ${message}`);
     return { statusCode: 0, success: false, message };
   }
 }
 
-async function oauthWorkflow(input: OAuthWorkflowInput): Promise<OAuthWorkflowResult> {
-  // Default to GitHub if no provider specified
-  const provider = input.provider || 'github';
-  const envVarName = `${provider.toUpperCase()}_TOKEN`;
-
-  // Default test endpoints per provider
-  const defaultEndpoints: Record<string, string> = {
-    github: 'https://api.github.com/user',
-    slack: 'https://slack.com/api/auth.test',
-    google: 'https://www.googleapis.com/oauth2/v1/userinfo',
-    linear: 'https://api.linear.app/graphql',
-  };
-
-  const testEndpoint = input.testEndpoint || defaultEndpoints[provider] || `https://api.${provider}.com/user`;
-
-  console.log(`[oauth-workflow] Starting OAuth test for provider: ${provider}`);
-  console.log(`[oauth-workflow] Looking for env var: ${envVarName}`);
-
-  // Step 1: Check for OAuth token
-  const tokenCheck = await SolidActions.runStep(
-    () => checkOAuthToken(envVarName),
-    { name: 'check-oauth-token' }
+async function oauthWorkflow(_input: OAuthWorkflowInput): Promise<OAuthWorkflowResult> {
+  // Step 1: Confirm the connection handle is present in env.
+  // (The actual OAuth token isn't visible to workflow code — by design.)
+  const connectionFound = await SolidActions.runStep(
+    () => Promise.resolve(Boolean(process.env.GITHUB)),
+    { name: 'check-connection' },
   );
 
-  if (!tokenCheck.found || !tokenCheck.token) {
-    console.log(`[oauth-workflow] No token found - workflow cannot proceed`);
+  if (!connectionFound) {
     return {
       success: false,
-      provider,
-      tokenFound: false,
-      error: `OAuth token not found. Expected env var: ${envVarName}. ` +
-        'Make sure you have: (1) created an OAuth connection, ' +
-        '(2) mapped it to a project variable with this env name.',
+      connectionFound: false,
+      error:
+        'Missing project variable `GITHUB`. In the SolidActions UI, map a ' +
+        'GitHub OAuth connection to a project var named `GITHUB`.',
     };
   }
 
-  // Step 2: Test the token by making an API call
-  const apiResult = await SolidActions.runStep(
-    () => testOAuthToken(tokenCheck.token!, testEndpoint),
-    { name: 'test-oauth-token' }
-  );
+  // Step 2: Make a real call through the proxy to verify the connection works.
+  const apiResult = await SolidActions.runStep(callGetUser, { name: 'github-get-user' });
 
   return {
     success: apiResult.success,
-    provider,
-    tokenFound: true,
+    connectionFound: true,
     apiTestResult: apiResult,
   };
 }
 
-// Register the workflow
 export const oauthWorkflowRegistration = SolidActions.registerWorkflow(oauthWorkflow, {
   name: 'oauth-workflow',
 });
 
-// Main execution
 SolidActions.run(oauthWorkflowRegistration);
