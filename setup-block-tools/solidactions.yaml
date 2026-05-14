@@ -1,0 +1,32 @@
+# Setup Block — declare CLI tools your workflow needs
+#
+# This example demonstrates the `setup:` block, which installs additional
+# CLI tools and language runtimes into your workflow's sandbox image.
+#
+# All three keys (apk, pip, run) are optional. The runner installs them in
+# this fixed order: apk → pip → run.
+#
+# - apk: Alpine packages (the base image is node:24-alpine).
+# - pip: Python packages. If `pip` is non-empty and `python3` is not in
+#        `apk`, the runner auto-installs python3 + py3-pip first — you do
+#        not need to add them manually.
+# - run: arbitrary shell commands run at image build time. Escape hatch
+#        for installers that aren't apk or pip packages.
+
+project: setup-block-tools
+
+setup:
+  apk:
+    - ffmpeg
+  pip:
+    - dbt-core
+
+workflows:
+  - id: probe-tools
+    name: Probe installed CLI tools
+    file: src/probe.ts
+    trigger: webhook
+    webhook:
+      method: [POST]
+      auth: none
+      response: instant
