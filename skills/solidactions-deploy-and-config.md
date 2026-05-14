@@ -135,6 +135,52 @@ Rules:
 - OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
 - Workflow code accesses all three forms the same way: `process.env.GITHUB_TOKEN`, `process.env.SHARED_API_KEY`, etc.
 
+### Setup block — installing CLI tools and language runtimes
+
+If your workflow needs a CLI tool (ffmpeg, dbt, awscli, psql, etc.) or a language runtime (python3), declare it in an optional top-level `setup:` block. The runner installs the packages into the sandbox image **before** your TypeScript source is copied in, so the tools are available at workflow runtime and the layers cache across code-only redeploys.
+
+```yaml
+setup:
+  apk: [ffmpeg, postgresql-client]
+  pip: [dbt-core]
+  run:
+    - npm install -g some-cli
+```
+
+| Key | Installs | Notes |
+|---|---|---|
+| `apk` | Alpine packages via `apk add --no-cache` | Base image is `node:24-alpine`. One package per array entry. |
+| `pip` | Python packages via `pip install --no-cache-dir --break-system-packages` | Version pins like `dbt-core==1.7.4` are fine. **Auto-bootstrap:** if `pip` is non-empty and `python3` isn't in `apk`, the runner installs `python3 py3-pip` first. |
+| `run` | Arbitrary shell commands at build time | Escape hatch for installers that aren't apk/pip. One command per entry. |
+
+Order of execution: `apk` → (auto python3+py3-pip if needed) → `pip` → `run`. All three keys optional.
+
+**Validation.** `apk` and `pip` entries must be single arguments — no whitespace, no shell metacharacters (`;&|<>\`$()`). `run` entries must not contain newlines (use `&&` to chain inside one entry). Bad entries fail the deploy with a clear error before the Daytona build starts.
+
+**Calling installed tools from workflow code.** Use `execa` inside a durable step:
+
+```ts
+import { SolidActions } from "@solidactions/sdk";
+import { execa } from "execa";
+
+await SolidActions.runStep(
+  async () => {
+    const { stdout } = await execa("dbt", ["run"]);
+    return stdout;
+  },
+  { name: "dbt-run" },
+);
+```
+
+Add `execa` (or your preferred subprocess library) to your `package.json` `dependencies`.
+
+**Caveats.**
+- Alpine + Python: packages with native C extensions (e.g. `duckdb`, `psycopg2-binary`) often lack pre-built musl wheels and try to compile from source. Add `apk: [gcc, g++, musl-dev, python3-dev]` if you hit a `CMake Error` or missing compiler, or pick wheel-friendly alternatives.
+- glibc-flavored installers (e.g. the `gcloud` curl installer) usually don't work on Alpine without significant additional setup. Stick to apk/pip when possible.
+- The `setup:` block is shared across all workflows in a project — every workflow in that project gets the same image. If you need divergent tool sets, split into separate projects.
+
+See [setup-block-tools/](../setup-block-tools/) for a runnable example.
+
 ## Recipe — New Project (YAML-first)
 
 The correct order for bootstrapping a new project. Key move: **declare env vars in YAML, deploy, then set values** — not "ask the user to fill the dashboard UI before deploying." The platform accepts deploys with declared-but-empty env vars; values are only required at runtime.
