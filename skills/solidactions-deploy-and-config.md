@@ -55,7 +55,7 @@ env:
 | Trigger | Purpose |
 |---|---|
 | `webhook` | HTTP-triggered. Gets a URL after deploy. Most common. |
-| `internal` | Spawned by other workflows via `SolidActions.startWorkflow()`. Internal workflows do NOT call `SolidActions.run()`. |
+| `internal` | Spawned by other workflows via `SolidActions.startWorkflow()`. Internal workflows are defined with `defineWorkflow` and exported — they are not declared as entry points in `solidactions.yaml`. |
 | `schedule` | Cron-triggered. Requires a `schedule:` field with a cron expression, e.g. `schedule: "0 9 * * *"`. |
 
 ### Webhook config options
@@ -133,7 +133,7 @@ env:
 Rules:
 - An env var maps to **either** a global variable **or** an OAuth connection — not both.
 - OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
-- Workflow code accesses all three forms the same way: `process.env.GITHUB_TOKEN`, `process.env.SHARED_API_KEY`, etc.
+- Workflow code accesses all three forms via `ctx.vars` in the `defineWorkflow` run body: `ctx.vars.GITHUB_TOKEN`, `ctx.vars.SHARED_API_KEY`, etc. Plain and global-mapped vars resolve as strings; OAuth-mapped vars resolve as a `ConnectionVar` (with `key`, `proxyUrl`, `proxyToken`).
 
 ### Setup block — installing CLI tools and language runtimes
 
@@ -239,7 +239,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
 
    Include `-s` explicitly for any name that doesn't match the CLI's auto-detect regex (see Rule 3).
 
-5. **Write workflow code** referencing `process.env.X`. This can happen in parallel with step 4 — the code just references the env var names; whether the platform has values yet doesn't affect the TypeScript.
+5. **Write workflow code** referencing `ctx.vars.X` in the `defineWorkflow` run body. This can happen in parallel with step 4 — the code just references the var names; whether the platform has values yet doesn't affect the TypeScript.
 
 6. **Redeploy with real code** once the workflow is written:
 
@@ -320,7 +320,7 @@ solidactions env map project-a DATABASE_URL SHARED_DATABASE_URL
 solidactions env map project-b DATABASE_URL SHARED_DATABASE_URL
 ```
 
-Rotating the secret then happens once (`env set SHARED_DATABASE_URL ...`) and both projects see the new value. Both projects still reference the value as `process.env.DATABASE_URL` in code.
+Rotating the secret then happens once (`env set SHARED_DATABASE_URL ...`) and both projects see the new value. Both projects still reference the value as `ctx.vars.DATABASE_URL` in the `defineWorkflow` run body.
 
 **Avoid** the `env pull <source> → edit .env → env set <target>` round-trip for cross-project sharing. Two traps:
 1. `env pull` wraps values containing `=`, `#`, spaces, or quotes (most `DATABASE_URL`s qualify) in literal double quotes: `DATABASE_URL="postgres://..."`. A naive `cut -d= -f2-` extraction then captures the quotes and `env set` stores them as part of the value, producing cryptic DNS / URL-parse failures at runtime.
@@ -468,7 +468,7 @@ Only use in-workflow verification when the platform's gateway-level auth (`hmac`
 For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary.
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 interface WebhookInput {
@@ -477,8 +477,7 @@ interface WebhookInput {
   body: Record<string, unknown>;
 }
 
-async function verifySignature(headers: Record<string, string>, rawBody: string) {
-  const secret = process.env.WEBHOOK_SECRET!;
+async function verifySignature(headers: Record<string, string>, rawBody: string, secret: string) {
   const signature = headers['x-signature'] || headers['x-hub-signature-256'] || '';
   // Strip any "sha256=" prefix if present
   const sigHex = signature.replace(/^sha256=/, '');
@@ -486,10 +485,10 @@ async function verifySignature(headers: Record<string, string>, rawBody: string)
   return timingSafeEqual(Buffer.from(sigHex), Buffer.from(expected));
 }
 
-async function webhookWorkflow(input: WebhookInput) {
+async function webhookWorkflow(input: WebhookInput, secret: string) {
   // Verify signature inside a step — captures result for replay determinism.
   const verified = await SolidActions.runStep(
-    () => verifySignature(input.headers, input.rawBody),
+    () => verifySignature(input.headers, input.rawBody, secret),
     { name: 'verify-signature' }
   );
 
@@ -502,10 +501,10 @@ async function webhookWorkflow(input: WebhookInput) {
   // ... continue with durable work steps
 }
 
-const workflow = SolidActions.registerWorkflow(webhookWorkflow, {
+export const workflow = defineWorkflow({
   name: 'verified-webhook',
+  run: (ctx) => webhookWorkflow(ctx.input, ctx.vars.WEBHOOK_SECRET as string),
 });
-SolidActions.run(workflow);
 ```
 
 Set the secret before deploy (global env set has no auto-detect — pass `-s` explicitly):
@@ -611,7 +610,7 @@ Top failure modes to check first:
 | Pattern in JSON | Likely cause | Where to look next |
 |---|---|---|
 | `status: "failed"` with `session_status: null` | Dispatch failure — the run never got a container. Queue or infra issue. | `solidactions project logs` for build/deploy errors; check workspace quota. |
-| Session started but `steps: []` and errors in logs | SDK init failure — the container came up but the SDK couldn't register or the workflow function never called `SolidActions.run()`. | `run view <id> --logs`; verify the workflow file exports and calls `SolidActions.run()`. |
+| Session started but `steps: []` and errors in logs | SDK init failure — the container came up but the SDK couldn't register the workflow. | `run view <id> --logs`; verify the workflow file exports a `defineWorkflow` handle and that the `solidactions.yaml` `file:` entry points to the correct source path. |
 | Some steps completed, then stops mid-workflow | Runtime error inside workflow code. | `run view <id> --logs` for the throwing step; check that step for unhandled rejections. |
 | All steps `completed`, run `status: "ERROR"`, `exit_code: 1` | Post-execution failure — workflow returned but process exited non-zero after. | Logs around the final step; look for uncaught errors in cleanup code or shutdown handlers. |
 | Repeated `"fetch failed"` in logs with retries | Network / tunnel connectivity; not your code. | Retry after a few minutes; if persistent, check service status. |
