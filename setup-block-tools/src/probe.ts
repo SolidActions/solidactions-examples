@@ -17,7 +17,7 @@
  * inside a durable step. Returns the versions captured from each.
  */
 
-import { SolidActions } from "@solidactions/sdk";
+import { SolidActions, defineWorkflow } from "@solidactions/sdk";
 import { execa } from "execa";
 
 interface ProbeOutput {
@@ -61,8 +61,7 @@ async function probeToolsWorkflow(): Promise<ProbeOutput> {
   return { ffmpeg, dbt, python };
 }
 
-const workflow = SolidActions.registerWorkflow(probeToolsWorkflow, {
+export const handle = defineWorkflow({
   name: "probe-tools",
+  run: () => probeToolsWorkflow(),
 });
-
-SolidActions.run(workflow);
