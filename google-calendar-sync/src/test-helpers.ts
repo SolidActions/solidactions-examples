@@ -3,6 +3,7 @@
  * for the integration test workflow.
  */
 
+import type { ConnectionVar } from "@solidactions/sdk";
 import {
   CalendarEventBody,
   deleteEvent,
@@ -144,12 +145,13 @@ export function makeFullEvent(
 
 /** Verify an event exists on the calendar. */
 export async function assertEventExists(
+  conn: ConnectionVar,
   calendarId: string,
   eventId: string,
   testName: string,
 ): Promise<TestResult> {
   try {
-    const event = await getEvent(calendarId, eventId);
+    const event = await getEvent(conn, calendarId, eventId);
     if (event.id === eventId) {
       return { phase: "verify", test: testName, status: "pass" };
     }
@@ -208,12 +210,13 @@ export function assertDescriptionContains(
 
 /** Verify a sheet record exists for a primary event. */
 export async function assertSheetRecordExists(
+  conn: ConnectionVar,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
   testName: string,
 ): Promise<TestResult> {
-  const records = await loadSyncedEvents(spreadsheetId);
+  const records = await loadSyncedEvents(conn, spreadsheetId);
   const found = records.find(
     (r) =>
       r.primary_event_id === primaryEventId &&
@@ -232,12 +235,13 @@ export async function assertSheetRecordExists(
 
 /** Verify a sheet record does NOT exist for a primary event. */
 export async function assertSheetRecordMissing(
+  conn: ConnectionVar,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
   testName: string,
 ): Promise<TestResult> {
-  const records = await loadSyncedEvents(spreadsheetId);
+  const records = await loadSyncedEvents(conn, spreadsheetId);
   const found = records.find(
     (r) =>
       r.primary_event_id === primaryEventId &&
@@ -275,20 +279,22 @@ export function assertNoNewSheetRecords(
 
 /** Delete a single test event, handling 410 gracefully. */
 export async function deleteTestEvent(
+  conn: ConnectionVar,
   calendarId: string,
   eventId: string,
 ): Promise<void> {
-  await deleteEvent(calendarId, eventId);
+  await deleteEvent(conn, calendarId, eventId);
 }
 
 /** Bulk delete test events, best-effort. */
 export async function cleanupTestEvents(
+  conn: ConnectionVar,
   calendarId: string,
   eventIds: string[],
 ): Promise<void> {
   for (const eventId of eventIds) {
     try {
-      await deleteEvent(calendarId, eventId);
+      await deleteEvent(conn, calendarId, eventId);
     } catch {
       // Best-effort cleanup — continue on errors
     }

@@ -3,6 +3,7 @@
  * Replaces PostgreSQL with a Google Sheet as the data store.
  */
 
+import type { ConnectionVar } from "@solidactions/sdk";
 import type { SyncedEventRecord, PendingSheetInsert, PendingSheetUpdate } from "./types.js";
 
 const SHEET_NAME = "synced_events";
@@ -37,17 +38,14 @@ interface ProxyOpts {
   body?: unknown;
 }
 
-async function sheetsProxy(method: string, path: string, opts: ProxyOpts): Promise<Response> {
-  const base = process.env.SA_PROXY_URL;
-  const token = process.env.SA_PROXY_TOKEN;
-  const connectionKey = process.env.GSHEET;
-  if (!base || !token || !connectionKey) {
+async function sheetsProxy(conn: ConnectionVar, method: string, path: string, opts: ProxyOpts): Promise<Response> {
+  if (!conn.proxyUrl || !conn.proxyToken || !conn.key) {
     throw new Error(
-      `Missing proxy env: SA_PROXY_URL=${!!base} SA_PROXY_TOKEN=${!!token} GSHEET=${!!connectionKey}`,
+      `Missing connection: proxyUrl=${!!conn.proxyUrl} proxyToken=${!!conn.proxyToken} key=${!!conn.key}`,
     );
   }
 
-  let url = `${base}/google-sheets${path}`;
+  let url = `${conn.proxyUrl}/google-sheets${path}`;
   if (opts.query) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(opts.query)) {
@@ -58,8 +56,8 @@ async function sheetsProxy(method: string, path: string, opts: ProxyOpts): Promi
   }
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    "X-OAuth-Connection-Key": connectionKey,
+    Authorization: `Bearer ${conn.proxyToken}`,
+    "X-OAuth-Connection-Key": conn.key,
     "X-OAuth-Action-Id": opts.actionId,
     Accept: "application/json",
   };
@@ -72,8 +70,8 @@ async function sheetsProxy(method: string, path: string, opts: ProxyOpts): Promi
   });
 }
 
-async function sheetsJson<T>(method: string, path: string, opts: ProxyOpts): Promise<T> {
-  const res = await sheetsProxy(method, path, opts);
+async function sheetsJson<T>(conn: ConnectionVar, method: string, path: string, opts: ProxyOpts): Promise<T> {
+  const res = await sheetsProxy(conn, method, path, opts);
   const text = await res.text();
   if (!res.ok) {
     throw new Error(
@@ -92,8 +90,9 @@ interface ValueRangeResponse {
 }
 
 /** Load all synced event records from the spreadsheet. */
-export async function loadSyncedEvents(spreadsheetId: string): Promise<SyncedEventRecord[]> {
+export async function loadSyncedEvents(conn: ConnectionVar, spreadsheetId: string): Promise<SyncedEventRecord[]> {
   const data = await sheetsJson<ValueRangeResponse>(
+    conn,
     "GET",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A:K`)}`,
     { actionId: ACTION.getValues },
@@ -123,11 +122,13 @@ export async function loadSyncedEvents(spreadsheetId: string): Promise<SyncedEve
 
 /** Insert a new synced event record by appending a row. */
 export async function insertSyncedEvent(
+  conn: ConnectionVar,
   spreadsheetId: string,
   record: Omit<SyncedEventRecord, "id" | "created_at" | "last_updated" | "last_checked">,
 ): Promise<void> {
   const now = new Date().toISOString();
   await sheetsJson(
+    conn,
     "POST",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A:K`)}:append`,
     {
@@ -156,6 +157,7 @@ export async function insertSyncedEvent(
 
 /** Update an existing synced event record by finding the matching row. */
 export async function updateSyncedEvent(
+  conn: ConnectionVar,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
@@ -166,7 +168,7 @@ export async function updateSyncedEvent(
     event_end: string;
   },
 ): Promise<void> {
-  const records = await loadSyncedEvents(spreadsheetId);
+  const records = await loadSyncedEvents(conn, spreadsheetId);
   const record = records.find(
     (r) => r.primary_event_id === primaryEventId && r.primary_calendar === primaryCalendar,
   );
@@ -174,6 +176,7 @@ export async function updateSyncedEvent(
 
   const now = new Date().toISOString();
   await sheetsJson(
+    conn,
     "PUT",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A${record.id}:K${record.id}`)}`,
     {
@@ -202,19 +205,21 @@ export async function updateSyncedEvent(
 
 /** Delete a synced event record by finding and removing the row. */
 export async function deleteSyncedEvent(
+  conn: ConnectionVar,
   spreadsheetId: string,
   primaryEventId: string,
   primaryCalendar: string,
 ): Promise<void> {
-  const records = await loadSyncedEvents(spreadsheetId);
+  const records = await loadSyncedEvents(conn, spreadsheetId);
   const record = records.find(
     (r) => r.primary_event_id === primaryEventId && r.primary_calendar === primaryCalendar,
   );
   if (!record) return;
 
-  const sheetId = await getSheetId(spreadsheetId);
+  const sheetId = await getSheetId(conn, spreadsheetId);
 
   await sheetsJson(
+    conn,
     "POST",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
     {
@@ -238,8 +243,9 @@ export async function deleteSyncedEvent(
 }
 
 /** Get the numeric sheet ID for the synced_events sheet. */
-export async function getSheetId(spreadsheetId: string): Promise<number> {
+export async function getSheetId(conn: ConnectionVar, spreadsheetId: string): Promise<number> {
   const data = await sheetsJson<SpreadsheetMeta>(
+    conn,
     "GET",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}`,
     { actionId: ACTION.getSpreadsheet },
@@ -250,6 +256,7 @@ export async function getSheetId(spreadsheetId: string): Promise<number> {
 
 /** Batch insert multiple synced event records in a single append call. */
 export async function batchInsertSyncedEvents(
+  conn: ConnectionVar,
   spreadsheetId: string,
   records: PendingSheetInsert[],
 ): Promise<void> {
@@ -271,6 +278,7 @@ export async function batchInsertSyncedEvents(
   ]);
 
   await sheetsJson(
+    conn,
     "POST",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A:K`)}:append`,
     {
@@ -283,6 +291,7 @@ export async function batchInsertSyncedEvents(
 
 /** Batch update multiple synced event records in a single batchUpdate call. */
 export async function batchUpdateSyncedEvents(
+  conn: ConnectionVar,
   spreadsheetId: string,
   updates: PendingSheetUpdate[],
 ): Promise<void> {
@@ -309,6 +318,7 @@ export async function batchUpdateSyncedEvents(
   }));
 
   await sheetsJson(
+    conn,
     "POST",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values:batchUpdate`,
     {
@@ -320,6 +330,7 @@ export async function batchUpdateSyncedEvents(
 
 /** Batch delete rows by index in a single batchUpdate call. Deletes in reverse order. */
 export async function batchDeleteSyncedEventRows(
+  conn: ConnectionVar,
   spreadsheetId: string,
   sheetId: number,
   rowIds: number[],
@@ -341,6 +352,7 @@ export async function batchDeleteSyncedEventRows(
   }));
 
   await sheetsJson(
+    conn,
     "POST",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
     { actionId: ACTION.batchUpdateSpreadsheet, body: { requests } },
@@ -348,8 +360,9 @@ export async function batchDeleteSyncedEventRows(
 }
 
 /** Ensure the sheet exists with the correct header row. Idempotent. */
-export async function initSchema(spreadsheetId: string): Promise<void> {
+export async function initSchema(conn: ConnectionVar, spreadsheetId: string): Promise<void> {
   const meta = await sheetsJson<SpreadsheetMeta>(
+    conn,
     "GET",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}`,
     { actionId: ACTION.getSpreadsheet },
@@ -363,6 +376,7 @@ export async function initSchema(spreadsheetId: string): Promise<void> {
       meta.sheets?.length === 1
     ) {
       await sheetsJson(
+        conn,
         "POST",
         `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
         {
@@ -384,6 +398,7 @@ export async function initSchema(spreadsheetId: string): Promise<void> {
       );
     } else {
       await sheetsJson(
+        conn,
         "POST",
         `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}:batchUpdate`,
         {
@@ -404,6 +419,7 @@ export async function initSchema(spreadsheetId: string): Promise<void> {
 
   // Check if headers exist
   const headerData = await sheetsJson<ValueRangeResponse>(
+    conn,
     "GET",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A1:K1`)}`,
     { actionId: ACTION.getValues },
@@ -414,6 +430,7 @@ export async function initSchema(spreadsheetId: string): Promise<void> {
 
   // Write headers
   await sheetsJson(
+    conn,
     "PUT",
     `/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${SHEET_NAME}!A1:K1`)}`,
     {
