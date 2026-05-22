@@ -45,7 +45,7 @@ async function helloWorkflow(input: HelloInput, greetingVar: string): Promise<He
 
 // --- Register and Run ---
 
-export const handle = defineWorkflow({
+export const handle = defineWorkflow<HelloInput, HelloOutput>({
   name: "hello",
-  run: (ctx) => helloWorkflow(ctx.input as HelloInput, ctx.vars.GREETING as string),
+  run: (ctx) => helloWorkflow(ctx.input, ctx.vars.GREETING as string),
 });

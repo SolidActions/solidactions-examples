@@ -1,8 +1,8 @@
 /**
  * Core sync workflow function and registration.
  * Exported for use by both the scheduled/webhook entry point
- * and the integration test workflow (via startWorkflow).
- * This file does NOT call SolidActions.run() — it is an internal workflow.
+ * (re-exported by sync-google-calendars.ts) and the integration test
+ * workflow (invoked via startWorkflow() from test-sync.ts).
  */
 
 import { SolidActions, defineWorkflow } from "@solidactions/sdk";
