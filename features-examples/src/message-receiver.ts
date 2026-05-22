@@ -12,7 +12,7 @@
  * delegates work to another and needs the result back.
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 import { createHmac } from 'crypto';
 
 interface ReceiverInput {
@@ -86,15 +86,15 @@ async function finalize(result: ReceivedMessage): Promise<string> {
 }
 
 // Workflow function
-async function messageReceiverWorkflow(input: ReceiverInput): Promise<ReceiverResult> {
+async function messageReceiverWorkflow(
+  input: ReceiverInput,
+  senderWebhookUrl: string | undefined,
+  senderWebhookSecret: string | undefined
+): Promise<ReceiverResult> {
   const taskId = input.taskId || 'task-001';
   const taskData = input.taskData || 'default-data';
   const timeoutSeconds = input.timeoutSeconds ?? 300; // Default 5 minute timeout
   const receiverWorkflowId = SolidActions.workflowID!;
-
-  // Get sender webhook URL and secret from environment (set by platform)
-  const senderWebhookUrl = process.env.SENDER_WEBHOOK_URL;
-  const senderWebhookSecret = process.env.SENDER_WEBHOOK_SECRET;
 
   if (!senderWebhookUrl) {
     throw new Error('SENDER_WEBHOOK_URL environment variable is required');
@@ -146,9 +146,13 @@ async function messageReceiverWorkflow(input: ReceiverInput): Promise<ReceiverRe
 }
 
 // Register the workflow
-export const messageReceiver = SolidActions.registerWorkflow(messageReceiverWorkflow, {
+export const messageReceiver = defineWorkflow<ReceiverInput, ReceiverResult>({
   name: 'message-receiver',
+  run: (ctx) =>
+    messageReceiverWorkflow(
+      ctx.input,
+      // Sender webhook URL and secret from tenant vars (set by platform)
+      ctx.vars.SENDER_WEBHOOK_URL as string | undefined,
+      ctx.vars.SENDER_WEBHOOK_SECRET as string | undefined
+    ),
 });
-
-// Main execution - this is the entry point, triggered via webhook
-SolidActions.run(messageReceiver);
