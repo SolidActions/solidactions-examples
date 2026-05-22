@@ -17,7 +17,7 @@
  * 4. Return summary
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface ParallelStepsInput {
   items: string[];
@@ -105,9 +105,7 @@ async function parallelStepsWorkflow(input: ParallelStepsInput): Promise<Paralle
 }
 
 // Register the workflow
-export const parallelSteps = SolidActions.registerWorkflow(parallelStepsWorkflow, {
+export const parallelSteps = defineWorkflow<ParallelStepsInput, ParallelStepsResult>({
   name: 'parallel-steps',
+  run: (ctx) => parallelStepsWorkflow(ctx.input),
 });
-
-// Main execution
-SolidActions.run(parallelSteps);

@@ -17,7 +17,7 @@
  * - When signal arrives via POST /api/signal/{workflowId}, workflow resumes
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface InvoiceApprovalInput {
   invoiceId: string;
@@ -174,7 +174,7 @@ async function invoiceApprovalWorkflowFn(input: InvoiceApprovalInput): Promise<I
 }
 
 // Register the workflow
-export const invoiceApprovalWorkflow = SolidActions.registerWorkflow(invoiceApprovalWorkflowFn, { name: 'invoice-approval' });
-
-// Main execution - simplified with SolidActions.run()
-SolidActions.run(invoiceApprovalWorkflow);
+export const invoiceApprovalWorkflow = defineWorkflow<InvoiceApprovalInput, InvoiceApprovalResult>({
+  name: 'invoice-approval',
+  run: (ctx) => invoiceApprovalWorkflowFn(ctx.input),
+});

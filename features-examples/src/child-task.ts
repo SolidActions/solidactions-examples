@@ -1,7 +1,7 @@
 /**
  * Child Task Workflow - spawned by parent-child
  */
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface ChildTaskInput {
   parentId: string;
@@ -29,15 +29,17 @@ async function compute(value: number, operation: string) {
   return { outputValue, computedAt: new Date().toISOString() };
 }
 
-async function childTaskFn(input: ChildTaskInput): Promise<ChildTaskResult> {
-  const result = await SolidActions.runStep(() => compute(input.value, input.operation), { name: 'compute' });
-  return {
-    parentId: input.parentId,
-    inputValue: input.value,
-    outputValue: result.outputValue,
-    operation: input.operation,
-    processedAt: result.computedAt,
-  };
-}
-
-export const childTask = SolidActions.registerWorkflow(childTaskFn, { name: 'child-task' });
+export const childTask = defineWorkflow<ChildTaskInput, ChildTaskResult>({
+  name: 'child-task',
+  async run(ctx) {
+    const input = ctx.input;
+    const result = await SolidActions.runStep(() => compute(input.value, input.operation), { name: 'compute' });
+    return {
+      parentId: input.parentId,
+      inputValue: input.value,
+      outputValue: result.outputValue,
+      operation: input.operation,
+      processedAt: result.computedAt,
+    };
+  },
+});
