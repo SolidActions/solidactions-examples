@@ -1,4 +1,4 @@
-import { SolidActions } from "@solidactions/sdk";
+import { SolidActions, defineWorkflow } from "@solidactions/sdk";
 
 // --- Input / Output Types ---
 
@@ -67,13 +67,7 @@ async function helloWorkflow(input: HelloInput): Promise<HelloOutput> {
   return result;
 }
 
-// --- Register and Run ---
-// registerWorkflow() makes the function available to the platform.
-// SolidActions.run() handles the full lifecycle: launch, read input,
-// start workflow, get result, shutdown.
-
-const workflow = SolidActions.registerWorkflow(helloWorkflow, {
+export const workflow = defineWorkflow<HelloInput, HelloOutput>({
   name: "hello-world",
+  run: (ctx) => helloWorkflow(ctx.input),
 });
-
-SolidActions.run(workflow);

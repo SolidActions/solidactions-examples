@@ -14,7 +14,7 @@
  * 6. Finalize - Complete and return results
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface SimpleStepsInput {
   taskId: string;
@@ -38,15 +38,23 @@ async function initialize(taskId: string) {
   };
 }
 
-async function checkEnvVars() {
-  const testEnvVar = process.env.TEST_ENV_VAR || 'NOT_SET';
-  const mappedSecret = process.env.MAPPED_SECRET || 'NOT_SET';
+interface EnvVarValues {
+  testEnvVar: string;
+  mappedSecret: string;
+  e2eEnvVar: string;
+  e2eMappedVar: string;
+  e2eOverrideVar: string;
+}
+
+async function checkEnvVars(vars: EnvVarValues) {
+  const testEnvVar = vars.testEnvVar || 'NOT_SET';
+  const mappedSecret = vars.mappedSecret || 'NOT_SET';
   // E2E_ENV_VAR: Tests per-environment variable resolution (inheritance)
-  const e2eEnvVar = process.env.E2E_ENV_VAR || 'NOT_SET';
+  const e2eEnvVar = vars.e2eEnvVar || 'NOT_SET';
   // E2E_MAPPED_VAR: Tests per-environment global variable mapping
-  const e2eMappedVar = process.env.E2E_MAPPED_VAR || 'NOT_SET';
+  const e2eMappedVar = vars.e2eMappedVar || 'NOT_SET';
   // E2E_OVERRIDE_VAR: Tests project-level override of global variable
-  const e2eOverrideVar = process.env.E2E_OVERRIDE_VAR || 'NOT_SET';
+  const e2eOverrideVar = vars.e2eOverrideVar || 'NOT_SET';
 
   console.log(`[simple-steps] TEST_ENV_VAR: ${testEnvVar}`);
   console.log(`[simple-steps] MAPPED_SECRET: ${mappedSecret ? '***SET***' : 'NOT_SET'}`);
@@ -99,7 +107,7 @@ async function finalize(taskId: string, value: number) {
 }
 
 // Workflow function - handles default input values
-async function simpleStepsWorkflow(input: SimpleStepsInput): Promise<SimpleStepsResult> {
+async function simpleStepsWorkflow(input: SimpleStepsInput, envVars: EnvVarValues): Promise<SimpleStepsResult> {
   // Apply defaults
   const taskId = input.taskId || 'test-001';
   const value = input.value ?? 5;
@@ -110,7 +118,7 @@ async function simpleStepsWorkflow(input: SimpleStepsInput): Promise<SimpleSteps
   steps.push('initialize');
 
   // Step 2: Check env vars (verifies tenant env var injection)
-  const envCheck = await SolidActions.runStep(() => checkEnvVars(), { name: 'check-env-vars' });
+  const envCheck = await SolidActions.runStep(() => checkEnvVars(envVars), { name: 'check-env-vars' });
   steps.push('check-env-vars');
   console.log(`[simple-steps] Env check result: ${JSON.stringify(envCheck)}`);
 
@@ -140,13 +148,14 @@ async function simpleStepsWorkflow(input: SimpleStepsInput): Promise<SimpleSteps
 }
 
 // Register the workflow
-export const simpleSteps = SolidActions.registerWorkflow(simpleStepsWorkflow, { name: 'simple-steps' });
-
-// Main execution - simplified with SolidActions.run()
-// SolidActions.run() automatically:
-// 1. Reads config from solidsteps.yaml + env vars
-// 2. Calls launch()
-// 3. Parses WORKFLOW_INPUT env var via getInput()
-// 4. Runs the workflow and awaits result
-// 5. Calls shutdown() and exits
-SolidActions.run(simpleSteps);
+export const simpleSteps = defineWorkflow<SimpleStepsInput, SimpleStepsResult>({
+  name: 'simple-steps',
+  run: (ctx) =>
+    simpleStepsWorkflow(ctx.input, {
+      testEnvVar: (ctx.vars.TEST_ENV_VAR as string | undefined) ?? '',
+      mappedSecret: (ctx.vars.MAPPED_SECRET as string | undefined) ?? '',
+      e2eEnvVar: (ctx.vars.E2E_ENV_VAR as string | undefined) ?? '',
+      e2eMappedVar: (ctx.vars.E2E_MAPPED_VAR as string | undefined) ?? '',
+      e2eOverrideVar: (ctx.vars.E2E_OVERRIDE_VAR as string | undefined) ?? '',
+    }),
+});

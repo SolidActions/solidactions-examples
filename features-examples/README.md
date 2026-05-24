@@ -9,7 +9,7 @@ This project contains 15 workflows demonstrating SolidActions SDK features. Each
 | Simple Steps | `src/simple-steps.ts` | Basic multi-step workflow pattern with env vars | `runStep()` |
 | Sleep Workflow | `src/sleep-workflow.ts` | Long-running waits that persist across restarts | `sleep()` |
 | Parent Child | `src/parent-child.ts` | Spawning and awaiting child workflows | `startWorkflow()`, `getResult()` |
-| Child Task | `src/child-task.ts` | Internal workflow spawned by parents | `registerWorkflow()` (no `run()`) |
+| Child Task | `src/child-task.ts` | Internal workflow spawned by parents | `defineWorkflow()` (not an entry point in yaml) |
 | Invoice Approval | `src/invoice-approval.ts` | Human approval with approve/reject URLs | `getSignalUrls()`, `recv()` |
 | Retry Workflow | `src/retry-workflow.ts` | Fault-tolerant step execution with backoff | `runStep()` with retry config |
 | Scheduled Workflow | `src/scheduled-workflow.ts` | Periodic task execution via cron | YAML `trigger: schedule` |
@@ -18,8 +18,8 @@ This project contains 15 workflows demonstrating SolidActions SDK features. Each
 | Message Receiver | `src/message-receiver.ts` | Async messaging entry point | `startWorkflow()`, `recv()` |
 | Message Sender | `src/message-sender.ts` | Async messaging worker | `send()` |
 | Multistep Parent | `src/multistep-parent.ts` | Complex parent spawning a multi-step child | `startWorkflow()`, `getResult()` |
-| Multistep Child | `src/multistep-child.ts` | Internal child with 4 sequential steps | `registerWorkflow()`, `runStep()` |
-| OAuth Workflow | `src/oauth-workflow.ts` | Call a third-party API (GitHub) via the OAuth-actions proxy | `${SA_PROXY_URL}/<platform>${path}` + `X-SA-Connection` |
+| Multistep Child | `src/multistep-child.ts` | Internal child with 4 sequential steps | `defineWorkflow()`, `runStep()` |
+| OAuth Workflow | `src/oauth-workflow.ts` | Call a third-party API (GitHub) via the OAuth-actions proxy | `${conn.proxyUrl}/<platform>${path}` + `X-OAuth-Connection-Key` |
 | Respond Test | `src/respond-test.ts` | Early webhook response before workflow completes | `respond()` |
 
 ## Setup
@@ -81,7 +81,7 @@ solidactions run start features-examples respond-test -i '{"taskId": "wh-1", "da
 
 ## Notes
 
-- **OAuth**: Uses the OAuth-actions proxy — workflow code never sees the access token. Create a GitHub OAuth connection in the SA UI, map it to project var `GITHUB`, and the workflow calls `${SA_PROXY_URL}/github/user` with the connection handle in `X-SA-Connection`. See `src/oauth-workflow.ts` for setup details, and run `solidactions oauth-actions search github <query>` to discover other endpoints.
+- **OAuth**: Uses the OAuth-actions proxy — workflow code never sees the access token. Create a GitHub OAuth connection in the SA UI, map it to project var `GITHUB`, and the workflow reads `ctx.vars.GITHUB as ConnectionVar` then calls `${conn.proxyUrl}/github/user` with `conn.proxyToken` and `conn.key`. See `src/oauth-workflow.ts` for setup details, and run `solidactions oauth-actions search github <query>` to discover other endpoints.
 - **Messaging**: The receiver triggers the sender automatically — you only need to run the receiver.
 - **Scheduled Workflow**: Requires deployment to run on its cron schedule. The schedule is configured in `solidactions.yaml`.
 - **Respond Test**: Configured with `response: wait` and `auth: none` in `solidactions.yaml` for easy testing.

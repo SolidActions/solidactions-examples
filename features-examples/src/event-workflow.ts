@@ -18,7 +18,7 @@
  * 6. Return final result
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface EventWorkflowInput {
   taskId: string;
@@ -132,7 +132,7 @@ async function eventWorkflow(input: EventWorkflowInput): Promise<EventWorkflowRe
 }
 
 // Register the workflow
-export const eventWorkflowFn = SolidActions.registerWorkflow(eventWorkflow, { name: 'event-workflow' });
-
-// Main execution
-SolidActions.run(eventWorkflowFn);
+export const eventWorkflowFn = defineWorkflow<EventWorkflowInput, EventWorkflowResult>({
+  name: 'event-workflow',
+  run: (ctx) => eventWorkflow(ctx.input),
+});

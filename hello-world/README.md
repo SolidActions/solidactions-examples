@@ -47,6 +47,6 @@ solidactions run start hello-world hello-world -i '{"name": "Alice"}' -w
 ## What to Learn
 
 - **Steps** — Wrapping functions with `SolidActions.runStep()` for durability
-- **Workflow registration** — `SolidActions.registerWorkflow()` + `SolidActions.run()`
+- **Workflow registration** — `defineWorkflow({ name, run: (ctx) => ... })` and exporting the handle
 - **Typed inputs/outputs** — TypeScript interfaces for workflow data
 - **Project structure** — `package.json`, `tsconfig.json`, `solidactions.yaml`, and `src/`

@@ -10,7 +10,7 @@
  * 3. After sleep - Record wake time and calculate duration
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface SleepWorkflowInput {
   testId: string;
@@ -100,7 +100,7 @@ async function sleepWorkflowFn(input: SleepWorkflowInput): Promise<SleepWorkflow
 }
 
 // Register the workflow
-export const sleepWorkflow = SolidActions.registerWorkflow(sleepWorkflowFn, { name: 'sleep-workflow' });
-
-// Main execution - simplified with SolidActions.run()
-SolidActions.run(sleepWorkflow);
+export const sleepWorkflow = defineWorkflow<SleepWorkflowInput, SleepWorkflowResult>({
+  name: 'sleep-workflow',
+  run: (ctx) => sleepWorkflowFn(ctx.input),
+});
