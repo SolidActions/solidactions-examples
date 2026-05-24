@@ -17,5 +17,5 @@ env:
   # signatures before the container starts.
   - WEBHOOK_SECRET
 
-  # Example workflow-consumed env var (read via process.env.GREETING):
+  # Example workflow-consumed env var (read via ctx.vars.GREETING):
   - GREETING

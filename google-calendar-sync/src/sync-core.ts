@@ -1,11 +1,12 @@
 /**
  * Core sync workflow function and registration.
  * Exported for use by both the scheduled/webhook entry point
- * and the integration test workflow (via startWorkflow).
- * This file does NOT call SolidActions.run() — it is an internal workflow.
+ * (re-exported by sync-google-calendars.ts) and the integration test
+ * workflow (invoked via startWorkflow() from test-sync.ts).
  */
 
-import { SolidActions } from "@solidactions/sdk";
+import { SolidActions, defineWorkflow } from "@solidactions/sdk";
+import type { ConnectionVar } from "@solidactions/sdk";
 import type {
   GoogleCalendarEvent,
   SyncedEventRecord,
@@ -81,6 +82,7 @@ function getDateString(dt: GoogleCalendarEvent["start"]): string {
 // --- Step Functions ---
 
 async function syncDirection(
+  gcal: ConnectionVar,
   sourceEvents: GoogleCalendarEvent[],
   syncedRecords: SyncedEventRecord[],
   sourceCalendarId: string,
@@ -104,7 +106,7 @@ async function syncDirection(
     CONCURRENCY,
     async (event) => {
       const eventBody = buildSyncedEventBody(event, prefix, sourceCalendarId);
-      const created = await createEvent(targetCalendarId, eventBody);
+      const created = await createEvent(gcal, targetCalendarId, eventBody);
       return { event, created };
     },
   );
@@ -137,7 +139,7 @@ async function syncDirection(
     CONCURRENCY,
     async ({ event, dbRecord }) => {
       const eventBody = buildSyncedEventBody(event, prefix, sourceCalendarId);
-      await updateEvent(targetCalendarId, dbRecord.secondary_event_id, eventBody);
+      await updateEvent(gcal, targetCalendarId, dbRecord.secondary_event_id, eventBody);
       return { event, dbRecord };
     },
   );
@@ -170,6 +172,7 @@ async function syncDirection(
 }
 
 async function detectAndDeleteOrphans(
+  gcal: ConnectionVar,
   eventsA: GoogleCalendarEvent[],
   eventsB: GoogleCalendarEvent[],
   syncedRecords: SyncedEventRecord[],
@@ -206,7 +209,7 @@ async function detectAndDeleteOrphans(
     orphans,
     CONCURRENCY,
     async (record) => {
-      await deleteEvent(record.secondary_calendar, record.secondary_event_id);
+      await deleteEvent(gcal, record.secondary_calendar, record.secondary_event_id);
       return record;
     },
   );
@@ -229,17 +232,32 @@ async function detectAndDeleteOrphans(
 
 // --- Workflow Function ---
 
-async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
-  // Read config from env
-  const spreadsheetId = process.env.SPREADSHEET_ID ?? "";
-  const calendarAId = process.env.CALENDAR_A_ID ?? "";
-  const calendarBId = process.env.CALENDAR_B_ID ?? "";
-  const calendarAPrefix = process.env.CALENDAR_A_PREFIX ?? "[A]";
-  const calendarBPrefix = process.env.CALENDAR_B_PREFIX ?? "[B]";
-  const maxEvents = parseInt(process.env.MAX_EVENTS ?? "2500", 10);
-  const daysAhead = parseInt(process.env.DAYS_AHEAD ?? "180", 10);
-  const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN ?? "";
-  const telegramChatId = process.env.TELEGRAM_CHAT_ID ?? "";
+async function syncGoogleCalendarsWorkflow(ctx: {
+  spreadsheetId: string;
+  calendarAId: string;
+  calendarBId: string;
+  calendarAPrefix: string;
+  calendarBPrefix: string;
+  maxEvents: number;
+  daysAhead: number;
+  telegramBotToken: string;
+  telegramChatId: string;
+  gcal: ConnectionVar;
+  gsheet: ConnectionVar;
+}): Promise<SyncOutput> {
+  const {
+    spreadsheetId,
+    calendarAId,
+    calendarBId,
+    calendarAPrefix,
+    calendarBPrefix,
+    maxEvents,
+    daysAhead,
+    telegramBotToken,
+    telegramChatId,
+    gcal,
+    gsheet,
+  } = ctx;
 
   try {
     SolidActions.logger.info(
@@ -249,11 +267,11 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     // Step 1: Parallel fetch from both calendars
     const [fetchAResult, fetchBResult] = await Promise.allSettled([
       SolidActions.runStep(
-        () => fetchEvents(calendarAId, maxEvents, daysAhead),
+        () => fetchEvents(gcal, calendarAId, maxEvents, daysAhead),
         { name: "fetch-calendar-a-events" },
       ),
       SolidActions.runStep(
-        () => fetchEvents(calendarBId, maxEvents, daysAhead),
+        () => fetchEvents(gcal, calendarBId, maxEvents, daysAhead),
         { name: "fetch-calendar-b-events" },
       ),
     ]);
@@ -280,7 +298,7 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
 
     // Step 2: Load synced records from sheet (single load for entire workflow)
     const syncedRecords = await SolidActions.runStep(
-      () => loadSyncedEvents(spreadsheetId),
+      () => loadSyncedEvents(gsheet, spreadsheetId),
       { name: "load-synced-records" },
     );
 
@@ -290,6 +308,7 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     const aToBResult = await SolidActions.runStep(
       () =>
         syncDirection(
+          gcal,
           eventsA,
           syncedRecords,
           calendarAId,
@@ -302,8 +321,8 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     // Step 4: Batch write A->B Sheet changes
     await SolidActions.runStep(
       async () => {
-        await batchInsertSyncedEvents(spreadsheetId, aToBResult.pendingInserts);
-        await batchUpdateSyncedEvents(spreadsheetId, aToBResult.pendingUpdates);
+        await batchInsertSyncedEvents(gsheet, spreadsheetId, aToBResult.pendingInserts);
+        await batchUpdateSyncedEvents(gsheet, spreadsheetId, aToBResult.pendingUpdates);
       },
       { name: "batch-write-a-to-b" },
     );
@@ -312,6 +331,7 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     const bToAResult = await SolidActions.runStep(
       () =>
         syncDirection(
+          gcal,
           eventsB,
           syncedRecords,
           calendarBId,
@@ -324,8 +344,8 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     // Step 6: Batch write B->A Sheet changes
     await SolidActions.runStep(
       async () => {
-        await batchInsertSyncedEvents(spreadsheetId, bToAResult.pendingInserts);
-        await batchUpdateSyncedEvents(spreadsheetId, bToAResult.pendingUpdates);
+        await batchInsertSyncedEvents(gsheet, spreadsheetId, bToAResult.pendingInserts);
+        await batchUpdateSyncedEvents(gsheet, spreadsheetId, bToAResult.pendingUpdates);
       },
       { name: "batch-write-b-to-a" },
     );
@@ -334,6 +354,7 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     const orphanResult = await SolidActions.runStep(
       () =>
         detectAndDeleteOrphans(
+          gcal,
           eventsA,
           eventsB,
           syncedRecords,
@@ -346,8 +367,9 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
     // Step 8: Batch delete orphan rows from Sheet
     await SolidActions.runStep(
       async () => {
-        const sheetId = await getSheetId(spreadsheetId);
+        const sheetId = await getSheetId(gsheet, spreadsheetId);
         await batchDeleteSyncedEventRows(
+          gsheet,
           spreadsheetId,
           sheetId,
           orphanResult.pendingDeletes.map((d) => d.rowId),
@@ -423,9 +445,33 @@ async function syncGoogleCalendarsWorkflow(): Promise<SyncOutput> {
   }
 }
 
-// --- Register and Export ---
+// --- Define and Export ---
 
-export const syncWorkflow = SolidActions.registerWorkflow(
-  syncGoogleCalendarsWorkflow,
-  { name: "sync-core" },
-);
+export const syncWorkflow = defineWorkflow<void, SyncOutput>({
+  name: "sync-core",
+  run: (ctx) => {
+    const gcal = ctx.vars.GCAL as ConnectionVar;
+    const gsheet = ctx.vars.GSHEET as ConnectionVar;
+
+    if (typeof gcal !== "object" || !gcal.proxyUrl) {
+      throw new Error("Missing or invalid GCAL connection variable");
+    }
+    if (typeof gsheet !== "object" || !gsheet.proxyUrl) {
+      throw new Error("Missing or invalid GSHEET connection variable");
+    }
+
+    return syncGoogleCalendarsWorkflow({
+      spreadsheetId: ctx.vars.SPREADSHEET_ID as string,
+      calendarAId: ctx.vars.CALENDAR_A_ID as string,
+      calendarBId: ctx.vars.CALENDAR_B_ID as string,
+      calendarAPrefix: (ctx.vars.CALENDAR_A_PREFIX as string | undefined) ?? "[A]",
+      calendarBPrefix: (ctx.vars.CALENDAR_B_PREFIX as string | undefined) ?? "[B]",
+      maxEvents: parseInt((ctx.vars.MAX_EVENTS as string | undefined) ?? "2500", 10),
+      daysAhead: parseInt((ctx.vars.DAYS_AHEAD as string | undefined) ?? "180", 10),
+      telegramBotToken: (ctx.vars.TELEGRAM_BOT_TOKEN as string | undefined) ?? "",
+      telegramChatId: (ctx.vars.TELEGRAM_CHAT_ID as string | undefined) ?? "",
+      gcal,
+      gsheet,
+    });
+  },
+});

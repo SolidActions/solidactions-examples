@@ -1,4 +1,4 @@
-import { SolidActions } from "@solidactions/sdk";
+import { SolidActions, defineWorkflow } from "@solidactions/sdk";
 
 // --- Input / Output Types ---
 
@@ -16,16 +16,16 @@ interface HelloOutput {
 // their results are cached for replay. See the `solidactions-workflow-coding`
 // skill for the full rules.
 
-async function buildGreeting(name: string): Promise<string> {
-  // GREETING is read here (inside a step) because process.env is technically
+async function buildGreeting(name: string, greeting: string): Promise<string> {
+  // GREETING is read here (inside a step) because env vars are technically
   // non-deterministic — the step's return value captures it for replay.
-  const prefix = process.env.GREETING ?? "Hello";
+  const prefix = greeting ?? "Hello";
   return `${prefix}, ${name}!`;
 }
 
 // --- Workflow ---
 
-async function helloWorkflow(input: HelloInput): Promise<HelloOutput> {
+async function helloWorkflow(input: HelloInput, greetingVar: string): Promise<HelloOutput> {
   const name = input.name ?? "world";
 
   // WEBHOOK_SECRET is NOT referenced here. The platform gateway verifies the
@@ -33,7 +33,7 @@ async function helloWorkflow(input: HelloInput): Promise<HelloOutput> {
   // `auth: hmac` in solidactions.yaml). If the signature is invalid, the
   // gateway returns 401 and your workflow never starts.
 
-  const greeting = await SolidActions.runStep(() => buildGreeting(name), {
+  const greeting = await SolidActions.runStep(() => buildGreeting(name, greetingVar), {
     name: "build-greeting",
   });
 
@@ -45,8 +45,7 @@ async function helloWorkflow(input: HelloInput): Promise<HelloOutput> {
 
 // --- Register and Run ---
 
-const workflow = SolidActions.registerWorkflow(helloWorkflow, {
+export const handle = defineWorkflow<HelloInput, HelloOutput>({
   name: "hello",
+  run: (ctx) => helloWorkflow(ctx.input, ctx.vars.GREETING as string),
 });
-
-SolidActions.run(workflow);

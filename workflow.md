@@ -50,6 +50,7 @@ graph TD
 2. **Install dependencies** — `npm install`
 3. **Write workflows** — TypeScript files in `src/` following the patterns in CLAUDE.md
 4. **Configure environment** — Add API keys and secrets to `.env` for local development
+5. **(Optional) Declare CLI tools** — If your workflow needs a CLI tool (ffmpeg, dbt, awscli, etc.), add a top-level `setup:` block to `solidactions.yaml`. See [setup-block-tools/](./setup-block-tools/) for a runnable example and the `solidactions-deploy-and-config` skill for the full reference.
 
 ### Phase 3: Test
 

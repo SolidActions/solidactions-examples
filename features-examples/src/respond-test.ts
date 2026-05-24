@@ -12,7 +12,7 @@
  * 4. Return complex internal state (should NOT leak to webhook)
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface RespondTestInput {
   taskId: string;
@@ -64,6 +64,8 @@ async function respondTestWorkflow(input: RespondTestInput) {
   };
 }
 
-// Register and run
-export const respondTest = SolidActions.registerWorkflow(respondTestWorkflow, { name: 'respond-test' });
-SolidActions.run(respondTest);
+// Register the workflow
+export const respondTest = defineWorkflow<RespondTestInput, Awaited<ReturnType<typeof respondTestWorkflow>>>({
+  name: 'respond-test',
+  run: (ctx) => respondTestWorkflow(ctx.input),
+});

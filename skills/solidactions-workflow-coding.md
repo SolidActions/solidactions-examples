@@ -3,7 +3,7 @@ name: solidactions-workflow-coding
 description: Use when writing or modifying TypeScript code in a SolidActions project (any file importing `@solidactions/sdk`, any edit under `src/workflows/` or `src/`, or any user mention of writing a workflow, step, or trigger). Encodes SDK API truth, determinism rules, the respond() early-response pattern, and the instant-vs-wait trigger choice.
 ---
 
-> **READ `.solidactions/sdk-reference.md` BEFORE using any SDK function you do not know cold.** AIs reliably invent SDK methods that don't exist (e.g., `step.invoke()`, `workflow.spawn()`, `defineWorkflow()`). The reference file is the source of truth — it's pinned to your installed SDK version. If the function isn't in that file, it doesn't exist. Don't write it.
+> **READ `.solidactions/sdk-reference.md` BEFORE using any SDK function you do not know cold.** AIs reliably invent SDK methods that don't exist (e.g., `step.invoke()`, `workflow.spawn()`). The reference file is the source of truth — it's pinned to your installed SDK version. If the function isn't in that file, it doesn't exist. Don't write it.
 
 ## Hard Rules
 
@@ -29,43 +29,46 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
    - The `name` option passed to `SolidActions.runStep(fn, { name: '...' })` is used as the cache key. Renaming a step across deploys breaks in-flight runs.
    - *Why: step caching uses the name as the lookup key; rename = cache miss = re-execution of already-completed work.*
 
-5. **Secrets: never hardcode. Reference via `process.env.X` and document in `.env.example`.**
+5. **Platform vars: access via `ctx.vars.<NAME>`, not `process.env.<NAME>`.** OAuth connections, declared env vars, and per-project config are all available as `ctx.vars.<NAME>` inside the `run` body — they are NOT on `process.env`. Only `process.env.SOLIDACTIONS_*` (SDK infra keys) and `WORKFLOW_INPUT_URL` are reserved on `process.env`.
+   - *Why: the new `defineWorkflow` API threads all project vars through `ctx.vars`, keeping env vars scoped to the run rather than leaking into the global process environment.*
+
+6. **Secrets: never hardcode. Declare in `solidactions.yaml` and document in `.env.example`.**
    - Setting the actual value happens via `solidactions env set` (covered by the deploy-and-config skill).
    - *Why: secrets in source = checked into git = leaked.*
 
-6. **Step return values must be small. Pass references between steps, not large payloads.**
+7. **Step return values must be small. Pass references between steps, not large payloads.**
    - The value returned from a `SolidActions.runStep()` body is serialized into the workflow's persistent state for replay. Returning large objects (file bytes, base64-encoded media, multi-MB JSON, raw HTTP bodies) bloats the run's storage and can exceed practical durability limits.
    - When a step produces something large (a downloaded file, a generated PDF, a video frame, a large API response): write it to durable external storage inside the step (S3/R2/blob storage, a tmp file path the next step can re-read, a database row), and return a **reference** — a URL, storage key, file path, or row ID. Re-fetch or re-open the bytes inside the next step that needs them.
    - Rule of thumb: if a step return value would be larger than ~100KB serialized, you're probably doing it wrong. Pass a reference instead.
    - *Why: durable workflow state is meant for small coordination data (IDs, status flags, references) — not for piping large payloads through the orchestration layer. Bloated state slows resumes, hits storage limits, and complicates debugging.*
 
-7. **Prefer `Promise.allSettled()` over `Promise.all()` for parallel steps.**
+8. **Prefer `Promise.allSettled()` over `Promise.all()` for parallel steps.**
    - `Promise.all` rejects on first failure and leaves sibling step promises unresolved, which corrupts workflow state. `Promise.allSettled` lets every parallel step finish (or fail) independently, and you handle the results.
    - Only use `Promise.all` if you genuinely want fail-fast and no other steps may continue.
    - *Why: a partially-resolved `Promise.all` leaves dangling step state that poisons replay.*
 
-8. **Do NOT call SDK context methods inside a step.**
+9. **Do NOT call SDK context methods inside a step.**
    - `SolidActions.send`, `SolidActions.recv`, `SolidActions.sleep`, `SolidActions.setEvent`, `SolidActions.getEvent`, `SolidActions.startWorkflow`, and `SolidActions.respond` belong in the workflow function, not inside a `runStep()` body.
    - *Why: these methods coordinate durable state. Calling them inside a step (which itself is a replay-cached unit) creates double-booking of durable operations on replay.*
 
-9. **Do NOT start workflows from inside a step.**
-   - Use `SolidActions.startWorkflow(...)` at the workflow-function level.
-   - *Why: same replay-determinism reason as rule 8 — child-workflow identity must be stable across replays.*
+10. **Do NOT start workflows from inside a step.**
+    - Use `SolidActions.startWorkflow(...)` at the workflow-function level.
+    - *Why: same replay-determinism reason as rule 9 — child-workflow identity must be stable across replays.*
 
-10. **Steps should not mutate shared in-memory state.**
+11. **Steps should not mutate shared in-memory state.**
     - Module-level variables, globals, shared caches — reading is fine, mutating is not.
     - External side effects (API calls, DB writes, file I/O) are the whole point of steps. This rule is about in-process memory that replay will see stale on resume.
     - *Why: replay re-runs the workflow function from scratch but pulls cached step results. Mutated in-memory state from a previous execution won't exist on replay, producing different code paths.*
 
-11. **Internal workflows do NOT call `SolidActions.run()`.**
-    - Only export the registered workflow; the top-level entry workflow for the project is the one that calls `SolidActions.run()`.
-    - *Why: `SolidActions.run()` wires the project's single entrypoint. Calling it inside a workflow file meant to be imported by another workflow creates multiple entrypoints and breaks routing.*
+12. **Internal workflows use `defineWorkflow` and export their handle — they do NOT need special treatment beyond not being the project entry.**
+    - All workflows (entry and internal) are authored with `defineWorkflow`. The launcher invokes the exported handle for the entry workflow. Internal workflows are simply not declared as entry points in `solidactions.yaml`.
+    - *Why: with `defineWorkflow`, there is no separate `SolidActions.run()` call to omit — the API no longer has one. All workflows are defined the same way; YAML determines which one is the entry.*
 
-12. **Workflow inputs and outputs must be JSON-serializable.**
+13. **Workflow inputs and outputs must be JSON-serializable.**
     - No classes, functions, `Date` objects (use ISO strings), `Map`/`Set`, `BigInt`, or symbols at the boundaries.
     - *Why: the runner serializes inputs/outputs across the network and into durable storage. Non-JSON values silently lose fidelity.*
 
-13. **`send()` / `recv()` without a topic are on a separate channel from calls with a topic.**
+14. **`send()` / `recv()` without a topic are on a separate channel from calls with a topic.**
     - If one side calls `send(msg, 'orders')` and the other calls `recv()` with no topic, the message is never received.
     - *Why: topics are first-class channel keys, not optional tags. Default (no-topic) is its own channel.*
 
@@ -74,7 +77,7 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
 For a simple request-response webhook (`response.mode: wait` in `solidactions.yaml`) that does fast work and returns a value to the caller. **You MUST call `SolidActions.respond(body)` — returning a value from the workflow function alone does NOT send anything to the caller.**
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface FormatInput { markdown: string }
 
@@ -94,10 +97,10 @@ async function formatWorkflow(input: FormatInput): Promise<void> {
   // Nothing to return — respond() already sent the body.
 }
 
-const workflow = SolidActions.registerWorkflow(formatWorkflow, {
+export const workflow = defineWorkflow({
   name: 'format-linkedin',
+  run: (ctx) => formatWorkflow(ctx.input),
 });
-SolidActions.run(workflow);
 ```
 
 YAML:
@@ -133,46 +136,48 @@ The 401 is misleading — there's no auth problem; the gateway has no body to re
 
 ## Recipe — Webhook with Early Response + Background Work
 
-The canonical SDK pattern uses `SolidActions` (the namespace import) — not standalone `step()` or `defineWorkflow()`.
+The canonical SDK pattern uses `SolidActions` (the namespace import) together with `defineWorkflow` to declare the entry point.
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface FormInput {
   email: string;
   message: string;
 }
 
-async function saveToDb(email: string, message: string) {
-  const dbUrl = process.env.DATABASE_URL;
-  // ... save logic
+async function saveToDb(email: string, message: string, dbUrl: string) {
+  // ... save logic using dbUrl
   return { saved: true };
 }
 
-async function sendConfirmation(email: string) {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  // ... email logic
+async function sendConfirmation(email: string, apiKey: string) {
+  // ... email logic using apiKey
   return { sent: true };
 }
 
-async function handleFormWorkflow(input: FormInput) {
+async function handleFormWorkflow(input: FormInput, vars: Record<string, unknown>) {
+  // Platform vars come in via ctx.vars — not process.env.
+  const dbUrl = vars.DATABASE_URL as string;
+  const apiKey = vars.SENDGRID_API_KEY as string;
+
   // Respond immediately so the form caller doesn't time out.
   await SolidActions.respond({ received: true });
 
   // Now do the actual work in named steps (results are cached for replay).
-  await SolidActions.runStep(() => saveToDb(input.email, input.message), {
+  await SolidActions.runStep(() => saveToDb(input.email, input.message, dbUrl), {
     name: 'save-to-db',
   });
 
-  await SolidActions.runStep(() => sendConfirmation(input.email), {
+  await SolidActions.runStep(() => sendConfirmation(input.email, apiKey), {
     name: 'send-confirmation-email',
   });
 }
 
-const workflow = SolidActions.registerWorkflow(handleFormWorkflow, {
+export const workflow = defineWorkflow({
   name: 'handle-form-submission',
+  run: (ctx) => handleFormWorkflow(ctx.input, ctx.vars),
 });
-SolidActions.run(workflow);
 ```
 
 Verify the import names against `.solidactions/sdk-reference.md` if the SDK has been updated since this skill was authored.
@@ -252,7 +257,7 @@ Verify primitive names against `.solidactions/sdk-reference.md` if the SDK has b
 Return a reference (file path, storage key, URL) from a step, then re-open the resource inside the next step that needs it.
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -286,8 +291,10 @@ async function pipelineWorkflow(input: { url: string }) {
   return result;
 }
 
-const workflow = SolidActions.registerWorkflow(pipelineWorkflow, { name: 'file-pipeline' });
-SolidActions.run(workflow);
+export const workflow = defineWorkflow({
+  name: 'file-pipeline',
+  run: (ctx) => pipelineWorkflow(ctx.input),
+});
 ```
 
 ```typescript
@@ -323,7 +330,7 @@ workflows:
 ### Child (src/child.ts)
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface ChildInput { value: number }
 interface ChildOutput { doubled: number }
@@ -336,16 +343,17 @@ async function childFunction(input: ChildInput): Promise<ChildOutput> {
   return result;
 }
 
-// Export only — internal workflows do NOT call SolidActions.run() (Hard Rule 11).
-export const childWorkflow = SolidActions.registerWorkflow(childFunction, {
+// Export the handle — internal workflows are just exported defineWorkflow handles.
+export const childWorkflow = defineWorkflow({
   name: 'child',
+  run: (ctx) => childFunction(ctx.input),
 });
 ```
 
 ### Parent (src/parent.ts)
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 import { childWorkflow } from './child.js';
 
 interface ParentInput { value: number }
@@ -361,8 +369,10 @@ async function parentFunction(input: ParentInput) {
   return result;
 }
 
-const workflow = SolidActions.registerWorkflow(parentFunction, { name: 'parent' });
-SolidActions.run(workflow);
+export const workflow = defineWorkflow({
+  name: 'parent',
+  run: (ctx) => parentFunction(ctx.input),
+});
 ```
 
 To impose a timeout on the child: `SolidActions.startWorkflow(childWorkflow, { timeoutMS: 60_000 })(input)`. To make the child idempotent on a business key, pass `workflowID` so repeated calls with the same key execute once.
@@ -389,7 +399,7 @@ workflows:
 ### Sender (src/sender.ts)
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface SenderInput { callbackWorkflowID: string; payload: string }
 
@@ -407,15 +417,16 @@ async function senderFunction(input: SenderInput): Promise<void> {
   await SolidActions.send(input.callbackWorkflowID, result, 'task-result');
 }
 
-export const messageSender = SolidActions.registerWorkflow(senderFunction, {
+export const messageSender = defineWorkflow({
   name: 'sender',
+  run: (ctx) => senderFunction(ctx.input),
 });
 ```
 
 ### Receiver (src/receiver.ts)
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 import { messageSender } from './sender.js';
 
 interface ReceiverInput { payload: string }
@@ -433,18 +444,20 @@ async function receiverFunction(input: ReceiverInput) {
   return result;
 }
 
-const workflow = SolidActions.registerWorkflow(receiverFunction, { name: 'receiver' });
-SolidActions.run(workflow);
+export const workflow = defineWorkflow({
+  name: 'receiver',
+  run: (ctx) => receiverFunction(ctx.input),
+});
 ```
 
-Topics matter: messages sent with topic `'task-result'` are in a separate channel from messages sent without a topic (Hard Rule 13). `recv()` returns `null` on timeout — handle it. Don't call `send()` or `recv()` inside a `runStep()` body (Hard Rule 8).
+Topics matter: messages sent with topic `'task-result'` are in a separate channel from messages sent without a topic (Hard Rule 14). `recv()` returns `null` on timeout — handle it. Don't call `send()` or `recv()` inside a `runStep()` body (Hard Rule 9).
 
 ## Recipe — Human Approval (Signal URLs)
 
 For workflows that pause and wait for a human to click an approve/reject link. `SolidActions.getSignalUrls()` returns pre-built URLs the platform resolves into signals on a named topic.
 
 ```typescript
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface ApprovalInput { requestID: string; description: string }
 
@@ -493,8 +506,10 @@ async function approvalWorkflow(input: ApprovalInput): Promise<{ approved: boole
   return { approved: signal.choice === 'approve' };
 }
 
-const workflow = SolidActions.registerWorkflow(approvalWorkflow, { name: 'approval' });
-SolidActions.run(workflow);
+export const workflow = defineWorkflow({
+  name: 'approval',
+  run: (ctx) => approvalWorkflow(ctx.input),
+});
 ```
 
 The topic argument to `getSignalUrls('approval')` must match the topic passed to `recv('approval', ...)` — signals route by topic. For more than approve/reject, use `urls.custom('some-action')` to get a URL that signals with that action name. Workflows durably resume across restarts, so timeouts of hours or days are fine.
@@ -509,9 +524,13 @@ Two failure modes in one call site:
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
+
+// ctx.vars carries platform-declared vars — pass the key in from the run body:
+// export const workflow = defineWorkflow({ name: '...', run: (ctx) => myWorkflow(ctx.input, ctx.vars) });
 
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
+  apiKey: vars.ANTHROPIC_API_KEY as string,
   baseURL: 'https://api.anthropic.com',   // pass explicitly — do NOT rely on env-var fallback
 });
 
@@ -565,7 +584,9 @@ function buildClientConfig(url: string): pg.ClientConfig {
   return { connectionString: url };
 }
 
-const client = new pg.Client(buildClientConfig(process.env.DATABASE_URL!));
+// Pass ctx.vars.DATABASE_URL in from the defineWorkflow run body:
+// run: (ctx) => myWorkflow(ctx.input, ctx.vars.DATABASE_URL as string)
+const client = new pg.Client(buildClientConfig(databaseUrl));
 ```
 
 ### Postgres — type coercion quirks

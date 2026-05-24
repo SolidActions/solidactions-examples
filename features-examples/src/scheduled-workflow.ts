@@ -17,7 +17,7 @@
  * The workflow receives schedule metadata as input when triggered by cron.
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface ScheduledInput {
   // Provided by scheduler when triggered
@@ -122,7 +122,7 @@ async function scheduledWorkflow(input: ScheduledInput): Promise<ScheduledResult
 }
 
 // Register the workflow
-export const scheduledTask = SolidActions.registerWorkflow(scheduledWorkflow, { name: 'scheduled-workflow' });
-
-// Main execution - simplified with SolidActions.run()
-SolidActions.run(scheduledTask);
+export const scheduledTask = defineWorkflow<ScheduledInput, ScheduledResult>({
+  name: 'scheduled-workflow',
+  run: (ctx) => scheduledWorkflow(ctx.input),
+});

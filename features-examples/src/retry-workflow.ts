@@ -12,8 +12,8 @@
  * With SOLIDACTIONS_TEST_SEED set, the same sequence of failures will occur.
  */
 
-import { SolidActions } from '@solidactions/sdk';
-import { seededRandom } from './utils/seeded-random.js';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
+import { seedRandom, seededRandom } from './utils/seeded-random.js';
 
 interface RetryInput {
   taskId: string;
@@ -110,7 +110,14 @@ async function retryWorkflow(input: RetryInput): Promise<RetryResult> {
 }
 
 // Register the workflow
-export const retryTest = SolidActions.registerWorkflow(retryWorkflow, { name: 'retry-workflow' });
-
-// Main execution - simplified with SolidActions.run()
-SolidActions.run(retryTest);
+export const retryTest = defineWorkflow<RetryInput, RetryResult>({
+  name: 'retry-workflow',
+  run: (ctx) => {
+    // Seed the deterministic PRNG. SOLIDACTIONS_TEST_SEED carries the reserved
+    // SOLIDACTIONS_ prefix, so it is a system var excluded from ctx.vars by
+    // design (see ContextAdapter.isReservedKey) — read it from process.env,
+    // where the runner injects it. Falsy → time-based fallback (prior behavior).
+    seedRandom(process.env.SOLIDACTIONS_TEST_SEED);
+    return retryWorkflow(ctx.input);
+  },
+});

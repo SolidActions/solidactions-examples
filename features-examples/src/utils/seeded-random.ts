@@ -1,10 +1,16 @@
 /**
  * Seeded Random Number Generator
  *
- * Provides deterministic randomness for testing. When SOLIDACTIONS_TEST_SEED
- * is set, all random values will be reproducible.
+ * Provides deterministic randomness for testing. When a seed is supplied
+ * (workflows pass `process.env.SOLIDACTIONS_TEST_SEED` — a reserved system var
+ * excluded from ctx.vars by design), all random values will be reproducible.
  *
  * Uses a simple mulberry32 PRNG algorithm.
+ *
+ * The PRNG is lazily initialized: a workflow calls `seedRandom(seed)` once at
+ * the top of its run() body to pin the sequence.
+ * If `seededRandom()` is called before any explicit seed, it falls back to a
+ * time-based seed — matching the original module-load behavior.
  */
 
 /**
@@ -33,18 +39,33 @@ export function createSeededRandom(seed: string): () => number {
   };
 }
 
-// Global seeded random instance
-// Uses SOLIDACTIONS_TEST_SEED env var for deterministic testing
-const rng = createSeededRandom(
-  process.env.SOLIDACTIONS_TEST_SEED || String(Date.now())
-);
+// Global seeded random instance (lazily initialized via seedRandom()).
+let rng: (() => number) | null = null;
+
+/**
+ * Initialize the global seeded PRNG.
+ *
+ * Workflows call this once at the top of their run() body, passing
+ * `process.env.SOLIDACTIONS_TEST_SEED` (a reserved system var, excluded from
+ * ctx.vars). When a seed is provided, the subsequent `seededRandom()` sequence
+ * is deterministic; otherwise a time-based seed is used (same fallback as the
+ * original module-load behavior).
+ *
+ * @param seed - Optional string seed. Falsy values fall back to Date.now().
+ */
+export function seedRandom(seed?: string): void {
+  rng = createSeededRandom(seed || String(Date.now()));
+}
 
 /**
  * Get a random number between 0 and 1 using the global seeded PRNG.
- * When SOLIDACTIONS_TEST_SEED is set, results are deterministic.
+ * When seeded via seedRandom(), results are deterministic.
  *
  * @returns Random number between 0 (inclusive) and 1 (exclusive)
  */
 export function seededRandom(): number {
+  if (rng === null) {
+    rng = createSeededRandom(String(Date.now()));
+  }
   return rng();
 }

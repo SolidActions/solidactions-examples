@@ -3,6 +3,7 @@
  * These are called inside SolidActions.runStep().
  */
 
+import type { ConnectionVar } from "@solidactions/sdk";
 import type { GoogleCalendarEvent } from "./types.js";
 
 /** Body shape for create/update — accepts any subset of Google Calendar event fields. */
@@ -35,17 +36,14 @@ interface ProxyOpts {
   body?: unknown;
 }
 
-async function gcalProxy(method: string, path: string, opts: ProxyOpts): Promise<Response> {
-  const base = process.env.SA_PROXY_URL;
-  const token = process.env.SA_PROXY_TOKEN;
-  const connectionKey = process.env.GCAL;
-  if (!base || !token || !connectionKey) {
+async function gcalProxy(conn: ConnectionVar, method: string, path: string, opts: ProxyOpts): Promise<Response> {
+  if (!conn.proxyUrl || !conn.proxyToken || !conn.key) {
     throw new Error(
-      `Missing proxy env: SA_PROXY_URL=${!!base} SA_PROXY_TOKEN=${!!token} GCAL=${!!connectionKey}`,
+      `Missing connection: proxyUrl=${!!conn.proxyUrl} proxyToken=${!!conn.proxyToken} key=${!!conn.key}`,
     );
   }
 
-  let url = `${base}/google-calendar${path}`;
+  let url = `${conn.proxyUrl}/google-calendar${path}`;
   if (opts.query) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(opts.query)) {
@@ -56,8 +54,8 @@ async function gcalProxy(method: string, path: string, opts: ProxyOpts): Promise
   }
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    "X-OAuth-Connection-Key": connectionKey,
+    Authorization: `Bearer ${conn.proxyToken}`,
+    "X-OAuth-Connection-Key": conn.key,
     "X-OAuth-Action-Id": opts.actionId,
     Accept: "application/json",
   };
@@ -70,8 +68,8 @@ async function gcalProxy(method: string, path: string, opts: ProxyOpts): Promise
   });
 }
 
-async function gcalJson<T>(method: string, path: string, opts: ProxyOpts): Promise<T> {
-  const res = await gcalProxy(method, path, opts);
+async function gcalJson<T>(conn: ConnectionVar, method: string, path: string, opts: ProxyOpts): Promise<T> {
+  const res = await gcalProxy(conn, method, path, opts);
   const text = await res.text();
   if (!res.ok) {
     throw new GoogleCalendarError(
@@ -85,6 +83,7 @@ async function gcalJson<T>(method: string, path: string, opts: ProxyOpts): Promi
 
 /** Fetch events from a calendar within the sync window. */
 export async function fetchEvents(
+  conn: ConnectionVar,
   calendarId: string,
   maxEvents: number,
   daysAhead: number,
@@ -97,6 +96,7 @@ export async function fetchEvents(
   futureDate.setDate(futureDate.getDate() + daysAhead);
 
   const data = await gcalJson<{ items?: GoogleCalendarEvent[] }>(
+    conn,
     "GET",
     `/calendars/${encodeURIComponent(calendarId)}/events`,
     {
@@ -116,10 +116,12 @@ export async function fetchEvents(
 
 /** Get a single event by ID. */
 export async function getEvent(
+  conn: ConnectionVar,
   calendarId: string,
   eventId: string,
 ): Promise<GoogleCalendarEvent> {
   return gcalJson<GoogleCalendarEvent>(
+    conn,
     "GET",
     `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
     { actionId: ACTION.getEvent },
@@ -128,10 +130,12 @@ export async function getEvent(
 
 /** Create an event on a calendar. Returns the created event data. */
 export async function createEvent(
+  conn: ConnectionVar,
   calendarId: string,
   eventBody: CalendarEventBody,
 ): Promise<GoogleCalendarEvent> {
   return gcalJson<GoogleCalendarEvent>(
+    conn,
     "POST",
     `/v3/calendars/${encodeURIComponent(calendarId)}/events`,
     { actionId: ACTION.createEvent, body: eventBody },
@@ -140,11 +144,13 @@ export async function createEvent(
 
 /** Update an existing event on a calendar (full replace, PUT). */
 export async function updateEvent(
+  conn: ConnectionVar,
   calendarId: string,
   eventId: string,
   eventBody: CalendarEventBody,
 ): Promise<GoogleCalendarEvent> {
   return gcalJson<GoogleCalendarEvent>(
+    conn,
     "PUT",
     `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
     { actionId: ACTION.updateEvent, body: eventBody },
@@ -153,10 +159,12 @@ export async function updateEvent(
 
 /** Delete an event from a calendar. Swallows 410 (already deleted). */
 export async function deleteEvent(
+  conn: ConnectionVar,
   calendarId: string,
   eventId: string,
 ): Promise<void> {
   const res = await gcalProxy(
+    conn,
     "DELETE",
     `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
     { actionId: ACTION.deleteEvent },

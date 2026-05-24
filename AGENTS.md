@@ -19,7 +19,7 @@ Full SDK reference: `.solidactions/sdk-reference.md`. Read before using any SDK 
 6. Do NOT call context methods (`send`, `recv`, `sleep`, `setEvent`, `getEvent`, `startWorkflow`, `respond`) inside a step. They belong in the workflow function.
 7. Do NOT start workflows from inside a step.
 8. Steps should not mutate shared in-memory state (module-level variables, globals). External side effects (API calls, DB writes, file I/O) are the whole point of steps — it's in-memory mutation that breaks replay.
-9. Internal workflows do NOT call `SolidActions.run()`. Only export the registered workflow.
+9. All workflows use `defineWorkflow({ name, run: (ctx) => ... })` and export the handle. Internal workflows are not declared as entry points in `solidactions.yaml` — that is the only distinction. There is no `SolidActions.run()` call.
 10. Scheduling is YAML-only — configure cron in `solidactions.yaml`, not in code.
 11. Workflow inputs and outputs must be JSON-serializable.
 

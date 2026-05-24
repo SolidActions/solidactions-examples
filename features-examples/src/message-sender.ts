@@ -13,7 +13,7 @@
  * This demonstrates the "worker" side of async task delegation.
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface SenderInput {
   callbackWorkflowId: string;  // Workflow ID to send result back to
@@ -94,9 +94,7 @@ async function messageSenderWorkflow(input: SenderInput): Promise<SenderResult> 
 }
 
 // Register the workflow
-export const messageSender = SolidActions.registerWorkflow(messageSenderWorkflow, {
+export const messageSender = defineWorkflow<SenderInput, SenderResult>({
   name: 'message-sender',
+  run: (ctx) => messageSenderWorkflow(ctx.input),
 });
-
-// Main execution - triggered by message-receiver or via webhook
-SolidActions.run(messageSender);

@@ -12,7 +12,7 @@
  * 5. Return aggregated result
  */
 
-import { SolidActions } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow } from '@solidactions/sdk';
 
 interface MultistepChildInput {
   itemId: string;
@@ -132,8 +132,7 @@ async function multistepChildWorkflow(input: MultistepChildInput): Promise<Multi
 }
 
 // Register the workflow (used by multistep-parent)
-export const multistepChild = SolidActions.registerWorkflow(multistepChildWorkflow, {
+export const multistepChild = defineWorkflow<MultistepChildInput, MultistepChildResult>({
   name: 'multistep-child',
+  run: (ctx) => multistepChildWorkflow(ctx.input),
 });
-
-// No main execution - this is started by multistep-parent
