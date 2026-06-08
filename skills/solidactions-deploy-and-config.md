@@ -111,6 +111,50 @@ webhook:
 
 Template variables resolved at request time: `{{run_uuid}}`, `{{trigger_id}}`, `{{timestamp}}`.
 
+### Exposing a workflow as an MCP tool
+
+Add an `mcp:` block to expose a deployed workflow as a **tool on the workspace-scoped `/mcp/workflows` server**, so an AI agent in an MCP client (Claude Desktop, Cursor, etc.) can call it directly. The MCP **connection** is the credential — the agent never sees the workflow's secrets or tokens.
+
+This is **orthogonal to `trigger`**: a workflow can be a `webhook` *and* an MCP tool at the same time. The presence of the `mcp:` block is what exposes it; removing the block on the next deploy un-exposes the tool.
+
+```yaml
+workflows:
+  - id: customer-lookup
+    name: Customer Lookup
+    file: src/customer-lookup.ts
+    trigger: webhook            # still a webhook too — orthogonal
+    mcp:
+      name: query_customers     # bare tool name, unique within this project
+      description: Search the customer DB by name, email, or plan.
+      input_schema:             # optional JSON Schema; omit → permissive object
+        type: object
+        properties:
+          query: { type: string, description: name, email, or plan }
+        required: [query]
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | Yes | Bare tool name, no prefix. Charset `^[a-zA-Z0-9_-]{1,64}$`. Unique **within this project**. |
+| `description` | Yes | Tells the AI *when* to use the tool. |
+| `input_schema` | No | JSON Schema for the arguments. Omit for a permissive object. Required fields and top-level types are enforced server-side. |
+
+**Wire tool name.** The client sees `{project_slug}_{name}` — the project slug is prepended **verbatim** (hyphens are kept, not converted). So project `acme-prod` with `name: query_customers` is called `acme-prod_query_customers`. Two projects in a workspace may reuse the same bare `name`; only the combined wire name must be unique.
+
+**What a call does.** Calling the tool **runs the workflow and waits synchronously** up to `webhook_response_timeout` (default 30s, max 300 — raise it under `webhook:` `response.timeout`).
+
+- Finishes in time → returns `{ output, run_id }`. A workflow that calls `SolidActions.respond(body)` returns its early payload in `output` immediately.
+- Runs longer than the wait → returns `{ "status": "running", "run_id": "..." }`. Fetch the result later with the static **`workflow_result`** tool: `workflow_result({ run_id })`.
+
+Runs created this way are recorded with `triggered_by = mcp`. MCP arguments arrive as the workflow input exactly like a webhook payload, so no code change is needed to also expose an existing webhook workflow.
+
+**Errors** are `{code, message}`: `invalid_input` (args don't satisfy `input_schema`), `unknown_tool` (not exposed / out of scope), `workflow_failed` (run errored — includes `run_id`), `unknown_run` (bad `run_id`).
+
+**Connecting a client.** The server is `https://<your-host>/mcp/workflows`, workspace-scoped. Two ways to authenticate:
+
+- **OAuth** (Claude Desktop, Cursor): point the client at the URL, approve the consent screen — you pick the workspace and whether the connection can call **all** exposed workflows or a **selected allowlist**.
+- **API token** (programmatic): send `Authorization: Bearer <token>` plus `X-Workspace-Id: <workspace-id>`. Mint a token under **Settings → API Keys** ("Grant access to all workflows").
+
 ### Env var declaration forms
 
 The `env:` block declares what env vars the workflow expects. Three forms:
