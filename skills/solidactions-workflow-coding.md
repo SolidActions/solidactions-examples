@@ -605,3 +605,4 @@ A TypeScript type like `{ total: number; day: string }` will compile but be wron
 
 - Full SDK reference: `.solidactions/sdk-reference.md`
 - Webhook auth, env var management, deployment: see the `solidactions-deploy-and-config` skill.
+- Exposing a workflow to an AI agent as an MCP tool (sync run, `respond()` early return, `workflow_result` for long runs): see the "Exposing a workflow as an MCP tool" recipe in `solidactions-deploy-and-config`.

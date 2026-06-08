@@ -98,6 +98,16 @@ workflows:
       response:
         mode: wait
         timeout: 60
+    # Orthogonal to the webhook above: this same workflow is also exposed as an
+    # MCP tool. Wire name the client sees: features-examples_respond_test.
+    # An MCP call runs the workflow and returns its respond() body inline.
+    mcp:
+      name: respond_test
+      description: Echo example — also callable as an MCP tool. Demonstrates respond() returning inline.
+      input_schema:
+        type: object
+        properties:
+          message: { type: string }
 
   # OAuth Integration
 
