@@ -1,0 +1,6 @@
+# With `deploy.gitignore: true` in solidactions.yaml, these are also kept out
+# of the deploy bundle (on top of the always-excluded .env/.env.* and the
+# node_modules/.git/dist/vendor defaults).
+*.log
+tmp/
+.DS_Store
