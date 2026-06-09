@@ -26,4 +26,7 @@ Full SDK reference: `.solidactions/sdk-reference.md`. Read before using any SDK 
 ### Messaging
 12. `send()` / `recv()` without a topic are in a separate channel from calls with a topic. Don't mix them expecting one to receive the other.
 
+### Deploy & secrets
+13. Never bundle secrets. `.env` and `.env.*` are **always** stripped from the deploy bundle and can't be re-included — set secrets via `solidactions env set` (they arrive as `ctx.vars` / `process.env`). `node_modules/`, `.git/`, `dist/`, `vendor/` are excluded by default; use `deploy.exclude` / `deploy.gitignore` in `solidactions.yaml` to keep other paths out. See the `solidactions-deploy-and-config` skill.
+
 Workflow examples: https://github.com/SolidActions/solidactions-examples

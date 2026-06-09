@@ -2,6 +2,16 @@
 # Demonstrates all major SDK workflow patterns
 project: features-examples
 
+# Deploy bundle control (optional). The CLI tars this directory under
+# `tenantcode/` and uploads it. `.env`/`.env.*` and node_modules/.git/dist/vendor
+# are ALWAYS excluded; the keys below add to that. See the
+# solidactions-deploy-and-config skill for the full ignore semantics.
+deploy:
+  exclude:          # additive, gitignore-style patterns
+    - "scratch/"    # local scratch dir that shouldn't ship
+    - "*.local"     # editor/tool scratch files
+  gitignore: true   # also honor this project's .gitignore (see ./.gitignore)
+
 env:
   # Seed for deterministic random in retry tests (configure via .env or UI)
   - SOLIDACTIONS_TEST_SEED

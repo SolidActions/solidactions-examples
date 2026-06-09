@@ -316,6 +316,26 @@ solidactions project deploy my-project ./ -e staging --create
 solidactions project deploy my-project ./
 ```
 
+### What gets bundled — ignore rules
+
+`project deploy` tars your project source (under `tenantcode/`) and uploads it; the platform builds the snapshot from that bundle. Control what is left out with an optional top-level `deploy:` block in `solidactions.yaml`:
+
+```yaml
+deploy:
+  exclude:          # additive, gitignore-style patterns
+    - web/
+    - "*.tmp"
+  gitignore: true   # also honor the project's root .gitignore (default: false)
+```
+
+- **`.env` and any `.env.*` are ALWAYS excluded and cannot be re-included** — secrets reach the sandbox via `solidactions env set` (→ `ctx.vars` / `process.env`), never the bundle. (Only exact `.env` / `.env.*` basenames match; `.envrc` and `environment.ts` are unaffected.)
+- **Always excluded by default:** `node_modules/` and `.git/` (at any depth), plus `dist/` and `vendor/` **at the project root** — the sandbox runs `npm install` and compiles TS itself, so bundling these just bloats the upload. (`dist/`/`vendor/` are root-anchored, so a vendored dep that ships its own `dist/` — e.g. a `file:` dependency — still deploys.)
+- **`deploy.exclude`** — extra gitignore-syntax patterns on top of the defaults (large front-ends, scratch dirs, fixtures).
+- **`deploy.gitignore: true`** — opt in to also apply the project's root `.gitignore`. Off by default, so a `.gitignore` that hides build output you actually need to ship doesn't silently break the deploy.
+- Symlinks are never followed.
+
+*Why: a deploy bundle that carries `.env` leaks secrets into the artifact and the build cache. The CLI hard-excludes them and prints a one-line bundle summary (file count, whether `.gitignore` was applied, exclude-rule count) so over-exclusion is visible at deploy time — don't try to "force-include" a secret file.*
+
 ## Recipe — Set Environment Variables
 
 The `-e <env>` flag picks the environment (default `dev`). The `-s` flag marks the value as a secret (masked in the UI). The CLI auto-detects keys matching `/secret|key|token|password|credential/i` as secrets — but for connection strings and other non-obvious secrets, pass `-s` explicitly.
