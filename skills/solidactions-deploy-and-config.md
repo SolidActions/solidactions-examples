@@ -11,6 +11,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
    - After production exists, subsequent deploys can target any environment. The CLI's default is `-e dev` on mature projects — intentional, so repeat deploys during development don't accidentally hit production.
    - If the user asks to "deploy" / "ship" a new project without specifying an env → use `-e production`. If they say "try it in dev" or "deploy to staging" → use that env.
    - If you see a "Project 'X' doesn't have a Y environment" error, deploy to the environment that **does** exist (usually production) rather than running `--create`. `--create` makes orphan environments; only use it when the user explicitly asked to add a new env.
+   - **To create a project (and its production root) without deploying code, use `solidactions project create <name>`.** It hits the same `/api/v1/projects` endpoint with no source upload or build. `-e` defaults to `production` (same production-first lifecycle), so `solidactions project create my-project` establishes the production root; pass `-e dev` / `-e staging` to add a child env. Reach for this when the project should exist before code is ready — e.g. to set env vars up front, or to pre-create projects in CI — instead of doing a throwaway `project deploy` just to register the record.
    - *Why: dev-only projects with no production root are broken — the platform requires a production environment to exist first. AIs often default to the CLI's `-e dev` on first deploy, which creates orphan projects with no production. The CLI now prevents this on first deploy, but you should understand the lifecycle so you don't cargo-cult `--create` when the CLI nudges you.*
 
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
@@ -265,6 +266,8 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
    ```bash
    solidactions project deploy my-project ./ -e production
    ```
+
+   *Optional — create first, deploy later:* to make the project exist before shipping code (e.g. to set env values up front, or to provision it in CI), run `solidactions project create my-project -e production` first. It creates the project + production environment with no build; the later `project deploy` then just ships code into the existing record.
 
 3. **AI sets values it knows.** For any env var the AI has a value for (non-sensitive config, well-known defaults, its own test fixtures), set via CLI. Apply the `-s` discipline from Rule 3:
 

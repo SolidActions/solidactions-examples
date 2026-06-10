@@ -65,7 +65,7 @@ On a fresh project, the correct order is:
    ```
    `init` creates `my-project/`, writes `package.json`, `tsconfig.json`, `solidactions.yaml`, `src/hello.ts`, and `.env.example` from the canonical template — then installs AI skills to `.claude/skills/` (or `.agents/skills/`) and drops `.solidactions/sdk-reference.md`. The scaffolded `solidactions.yaml` includes a minimal webhook workflow with `auth: hmac` to demonstrate gateway-first webhook auth (see the `solidactions-deploy-and-config` skill for the full pattern).
 
-3. **Follow "Recipe — New Project (YAML-first)"** in the `solidactions-deploy-and-config` skill for the env-setup + deploy discipline (set known env var values via CLI → give the user a copy-pasteable list for unknowns → deploy).
+3. **Follow "Recipe — New Project (YAML-first)"** in the `solidactions-deploy-and-config` skill for the env-setup + deploy discipline (set known env var values via CLI → give the user a copy-pasteable list for unknowns → deploy). The project record itself is created on first deploy, or explicitly without a build via `solidactions project create <name>` — handy when you want to set env vars or provision in CI before any code exists.
 
 ### Retrofitting an existing project
 
