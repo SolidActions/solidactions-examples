@@ -1,14 +1,14 @@
 ---
 name: solidactions-getting-started
-description: Use when the user mentions building, scaffolding, or starting a new SolidActions project, OR when there is no `solidactions.yaml` in the working directory. Encodes the "login once + init per project" bootstrap and the multi-environment discipline (production-only by default).
+description: Use when the user mentions building, scaffolding, or starting a new SolidActions project, OR when there is no `solidactions.yaml` in the working directory. Encodes the "login once + init per project" bootstrap and the multi-environment discipline (start with one environment unless asked).
 ---
 
 ## Hard Rules
 
 - CLI auth is per-user, not per-project. Run `solidactions login <api-key>` once; check with `solidactions whoami` in future projects to confirm. *Why: authentication is global — no need to re-auth per project.* For multi-workspace users, the **active workspace** can be pinned per-folder via `solidactions workspace set <name> --local` (writes a partial `./.solidactions/config.json`) or overridden one-off via the top-level `solidactions -w <slug|uuid|name> ...` flag. See the `solidactions-deploy-and-config` skill's "CLI Config & Workspace Switching" section.
 - For new projects, run `solidactions init <name>` — it scaffolds files AND installs AI skills + SDK reference in one command. For existing projects that predate the `init` command, use `solidactions ai init` alone to install skills + SDK reference without scaffolding. *Why: `init` writes `package.json`, `tsconfig.json`, `solidactions.yaml`, `src/hello.ts`, and `.env.example` from the canonical template, plus the skills and SDK reference. Getting these from a template prevents drift from what the platform parses.*
-- Every project starts as a single production environment. Do not create `dev` or `staging` environments unless the user explicitly asks. *Why: dev-only projects with no production root are broken — the platform requires a production environment to exist before child environments can be linked.*
-- Never deploy to a `dev` or `staging` environment as the first deployment. *Why: same rule as above — production must always exist first; deploying to a child environment before the root creates an invalid project state.*
+- Every project starts as a single environment — **production by default**. Do not create `dev` or `staging` environments unless the user explicitly asks. *Why: keep new projects simple; extra environments add deploy/config surface you only want when asked. Environments are independent — a standalone `dev` or `staging` project is perfectly valid, so this is a "don't over-create" guideline, not a technical requirement.*
+- When the user doesn't name an environment for a new project, default to `production`. *Why: production is the conventional primary environment. But there's no "production must exist first" rule — if the user asks to start in `dev` or `staging`, deploy straight there; no production root is required.*
 - Read `.solidactions/sdk-reference.md` (dropped by `init` and `ai init`) before using any SDK function you don't know cold. *Why: prevents inventing methods that don't exist — the reference file is pinned to the installed SDK version and is the canonical source of truth.*
 
 ## Platform Mental Model

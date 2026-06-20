@@ -5,14 +5,14 @@ description: Use when the user mentions deploying a SolidActions project, settin
 
 ## Hard Rules
 
-1. **Project deployment lifecycle: production-first.**
+1. **Project deployment lifecycle: pick an environment explicitly.**
    - A project's **first deploy** must explicitly pick an environment with `-e`. The CLI requires this for new projects — without it, you'll see an error listing the valid env choices.
-   - For a new project, start with `-e production`: `solidactions project deploy <name> <path> -e production`. This creates the production root. Dev and staging are optional children that attach to this root later.
-   - After production exists, subsequent deploys can target any environment. The CLI's default is `-e dev` on mature projects — intentional, so repeat deploys during development don't accidentally hit production.
-   - If the user asks to "deploy" / "ship" a new project without specifying an env → use `-e production`. If they say "try it in dev" or "deploy to staging" → use that env.
-   - If you see a "Project 'X' doesn't have a Y environment" error, deploy to the environment that **does** exist (usually production) rather than running `--create`. `--create` makes orphan environments; only use it when the user explicitly asked to add a new env.
-   - **To create a project (and its production root) without deploying code, use `solidactions project create <name>`.** It hits the same `/api/v1/projects` endpoint with no source upload or build. `-e` defaults to `production` (same production-first lifecycle), so `solidactions project create my-project` establishes the production root; pass `-e dev` / `-e staging` to add a child env. Reach for this when the project should exist before code is ready — e.g. to set env vars up front, or to pre-create projects in CI — instead of doing a throwaway `project deploy` just to register the record.
-   - *Why: dev-only projects with no production root are broken — the platform requires a production environment to exist first. AIs often default to the CLI's `-e dev` on first deploy, which creates orphan projects with no production. The CLI now prevents this on first deploy, but you should understand the lifecycle so you don't cargo-cult `--create` when the CLI nudges you.*
+   - For a new project, default to `-e production`: `solidactions project deploy <name> <path> -e production`. Production is the conventional primary environment — but it is **not** required to exist first. Each environment (`production`/`staging`/`dev`) is an independent project in the family `(workspace, name)`; you can create them in any order, including a standalone `dev` or `staging` with no production sibling.
+   - The CLI's default is `-e dev` on mature projects — intentional, so repeat deploys during development don't accidentally hit production.
+   - If the user asks to "deploy" / "ship" a new project without specifying an env → use `-e production`. If they say "try it in dev" or "deploy to staging" → deploy straight to that env (no production needed first).
+   - If you see a "Project 'X' doesn't have a Y environment" error, either deploy to an environment that **does** exist, or pass `--create` to add the requested one. `--create` makes a new standalone environment in the family — use it when the user wants that environment to exist.
+   - **To create a project without deploying code, use `solidactions project create <name>`.** It hits the same `/api/v1/projects` endpoint with no source upload or build. `-e` defaults to `production`, so `solidactions project create my-project` creates the production environment; pass `-e dev` / `-e staging` to create that environment instead (standalone is fine). Reach for this when the project should exist before code is ready — e.g. to set env vars up front, or to pre-create projects in CI — instead of doing a throwaway `project deploy` just to register the record.
+   - *Why: environments are first-class and independent — there is no "production must exist first" rule (a standalone `dev` project is valid). Production is just the sensible default for a project's primary environment, so prefer it when the user doesn't say otherwise.*
 
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
 
@@ -296,7 +296,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
 
 ### Three-environment model
 
-SolidActions supports exactly three environments per project: **dev**, **staging**, and **production**. Production is the root — every project must have one before dev/staging can exist (this is why Rule 1 requires production-first on the initial deploy). Only add dev/staging when the user explicitly asks.
+SolidActions supports exactly three environments per project: **dev**, **staging**, and **production**. They are first-class, independent environments within a family `(workspace, name)` — none is required before the others, so a standalone `dev` or `staging` project is valid (you can add production later, and it joins the same family by name). Production is just the conventional default for a new project's first deploy (Rule 1). Only add extra environments when the user explicitly asks.
 
 ## Recipe — Deploy
 
