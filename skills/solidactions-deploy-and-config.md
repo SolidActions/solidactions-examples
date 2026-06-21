@@ -79,7 +79,7 @@ workflows:
 
 For a minimal webhook with all defaults, just `trigger: webhook` — no `webhook:` block needed.
 
-> **Wait-mode response delivery.** `mode: wait` delivers the HTTP body **only** via `await SolidActions.respond(body)` inside the workflow. Returning a value from the workflow function does NOT send it to the caller — the gateway will respond with `HTTP 401 {"error":"Unauthorized"}` even though the workflow ran successfully. See the `solidactions-workflow-coding` skill's "Wait-mode Webhook with Synchronous Response" recipe for the correct pattern.
+> **Wait-mode response delivery.** `mode: wait` returns the workflow's **return value** as an `HTTP 200` body by default. Use `await SolidActions.respond(body, opts?)` to override — for early delivery (before the workflow finishes), a non-200 status (`{ status: 404 }`), or custom headers. See the `solidactions-workflow-coding` skill's Hard Rule 2 for the full pattern.
 
 ### Authentication strategies (gateway-level)
 
