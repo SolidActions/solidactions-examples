@@ -17,14 +17,14 @@ description: Use when the user mentions deploying a SolidActions project, settin
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
 
 3. **Secrets: set via CLI with `-s` when the key name doesn't hint at sensitivity.** Never hardcode in source.
-   - The CLI auto-detects keys matching `/secret|key|token|password|credential/i` and flags them secret automatically — `STRIPE_API_KEY`, `GITHUB_TOKEN`, `WEBHOOK_SECRET` don't need explicit `-s`.
+   - The CLI auto-detects keys matching `/secret|key|token|password|credential/i` and flags them secret automatically — `STRIPE_API_KEY`, `GITHUB_TOKEN` don't need explicit `-s`.
    - For names the auto-detect misses — `DATABASE_URL`, `REDIS_URL`, `MONGO_URI`, connection strings, URLs with embedded auth, private service endpoints — **always pass `-s` explicitly**.
    - When in doubt, pass `-s`. Adding it to an already-auto-detected secret is a no-op.
    - *Why: env vars are tenant-isolated, but without the secret flag the value is plaintext in the UI and leaks via copy-paste, screenshots, and support conversations. Connection strings especially carry credentials in the value itself.*
 
 4. **Webhook auth: configure in `solidactions.yaml` first — custom workflow code is a fallback, not the default.**
    - The platform verifies signatures at the gateway when you declare `auth:` in the webhook config. Options: `hmac` (default), `basic`, `header`, `none`. See the `solidactions.yaml` schema recipe below for the full table.
-   - Only write in-workflow HMAC verification when the platform's schemes don't cover yours — non-SHA256 algorithms, multi-header schemes, vendor-specific flows. See "Recipe — Custom Webhook Auth" for that fallback.
+   - Do not write in-workflow auth verification — `ctx.input` never contains headers or rawBody, so any in-workflow signature check silently validates nothing. Gateway-level auth (`auth: hmac` / `auth: header`) is the only supported path. If you need a non-standard scheme, file a feature request.
    - *Why: AIs default to rolling their own HMAC in workflow code, but the platform already does this at the gateway — before any container spins up. Gateway-level auth rejects bad signatures for free; in-workflow verification pays compute for each rejection.*
 
 5. **For schedules, set the cron string in `solidactions.yaml`, not in code.** Use `solidactions schedule set` to activate a schedule after deploy. *Why: declarative schedules in YAML survive workflow code refactors; programmatic schedules drift.*
@@ -79,15 +79,15 @@ workflows:
 
 For a minimal webhook with all defaults, just `trigger: webhook` — no `webhook:` block needed.
 
-> **Wait-mode response delivery.** `mode: wait` delivers the HTTP body **only** via `await SolidActions.respond(body)` inside the workflow. Returning a value from the workflow function does NOT send it to the caller — the gateway will respond with `HTTP 401 {"error":"Unauthorized"}` even though the workflow ran successfully. See the `solidactions-workflow-coding` skill's "Wait-mode Webhook with Synchronous Response" recipe for the correct pattern.
+> **Wait-mode response delivery.** `mode: wait` returns the workflow's **return value** as an `HTTP 200` body by default. Use `await SolidActions.respond(body, opts?)` to override — for early delivery (before the workflow finishes), a non-200 status (`{ status: 404 }`), or custom headers. See the `solidactions-workflow-coding` skill's Hard Rule 2 for the full pattern.
 
 ### Authentication strategies (gateway-level)
 
 | Strategy | YAML | How It Works |
 |---|---|---|
-| **HMAC** (default) | `hmac` | SHA-256 signature verified via `X-Hub-Signature-256`, `X-Signature-256`, or `Stripe-Signature` headers. Store the shared secret in `WEBHOOK_SECRET` — the gateway reads it. |
+| **HMAC** (default) | `hmac` | SHA-256 signature verified via `X-Hub-Signature-256`, `X-Signature-256`, or `Stripe-Signature` headers. The secret is the auto-generated `workflow.webhook_secret` — retrieve it with `solidactions webhook secret <project>` and set the same value in your sender. |
 | **Basic** | `basic` | HTTP Basic Auth with stored credentials. |
-| **Header** | `header` | Custom header (default `X-API-Key`) compared against the webhook secret. Change the header name with `auth_header`. |
+| **Header** | `header` | Custom header (default `X-API-Key`) compared against the auto-generated `workflow.webhook_secret`. Retrieve it with `solidactions webhook secret <project>` and pass it as the header value in your sender. Change the header name with `auth_header`. |
 | **None** | `none` | No authentication. All requests accepted. Only for truly public endpoints. |
 
 Prefer `hmac` or `header` — both are enforced at the gateway before the workflow container spins up. Rejected requests cost nothing.
@@ -239,7 +239,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
    cd my-project
    ```
 
-   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `WEBHOOK_SECRET` + `GREETING`. **Edit it to add any additional env vars your workflow needs** before deploying:
+   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `GREETING` as an example env var. **Edit it to add any additional env vars your workflow needs** before deploying:
 
    ```yaml
    project: my-project
@@ -254,7 +254,6 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
          method: [POST]
 
    env:
-     - WEBHOOK_SECRET          # (from template) gateway-consumed HMAC secret
      - GREETING                # (from template) workflow-consumed example
      - SENDGRID_API_KEY        # add any additional env vars the workflow will need
      - DATABASE_URL
@@ -525,64 +524,13 @@ This hint fires today on `project deploy`. Other commands (`env list/set`, `sche
 - **Don't manually craft `.solidactions/config.json` just to switch workspaces** — `workspace set --local` does it correctly. Manual files risk the legacy slug/UUID-mismatch trap, where a partial hand-written file lacks the `workspace` slug and `whoami` then displays a slug from one layer with a UUID from another. API calls still use the correct UUID, but the display is wrong.
 - **Don't commit `.solidactions/config.json` to git.** Even the partial workspace-pin form is tenant-identifying; the full tenant-pin form holds your API key. The CLI prompts to add `.solidactions/` to `.gitignore` on first `workspace set --local`.
 
-## Recipe — Custom Webhook Auth (fallback only)
+## Recipe — Custom Webhook Auth (use gateway auth)
 
-Only use in-workflow verification when the platform's gateway-level auth (`hmac` / `basic` / `header` — see YAML schema recipe above) doesn't fit your scheme. Examples of when you'd reach for this:
-- Non-SHA256 signature algorithms
-- Multi-header or nested-header schemes
-- Vendor-specific auth flows the gateway doesn't recognize
+**What `ctx.input` contains for webhook triggers:** the parsed request body merged with query-string parameters — nothing else. Request headers, the raw body string, and HTTP method are NOT available in `ctx.input`. Do not declare `interface WebhookInput { headers: ...; rawBody: ... }` — those fields will always be `undefined` at runtime and the code will silently validate nothing.
 
-For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary.
+**The correct path for HMAC / secret-header auth is the gateway** (`auth: hmac` or `auth: header` in `solidactions.yaml`) keyed to the workflow's generated secret. For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary. Retrieve the secret with `solidactions webhook secret <project>` (or `webhook list --show-secrets`) and set the same value in your sender (e.g. Telegram `setWebhook secret_token`, GitHub webhook settings, Stripe dashboard). In-code header reading is not supported and produces a silent no-op.
 
-```typescript
-import { SolidActions, defineWorkflow } from '@solidactions/sdk';
-import { createHmac, timingSafeEqual } from 'crypto';
-
-interface WebhookInput {
-  headers: Record<string, string>;
-  rawBody: string;
-  body: Record<string, unknown>;
-}
-
-async function verifySignature(headers: Record<string, string>, rawBody: string, secret: string) {
-  const signature = headers['x-signature'] || headers['x-hub-signature-256'] || '';
-  // Strip any "sha256=" prefix if present
-  const sigHex = signature.replace(/^sha256=/, '');
-  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  return timingSafeEqual(Buffer.from(sigHex), Buffer.from(expected));
-}
-
-async function webhookWorkflow(input: WebhookInput, secret: string) {
-  // Verify signature inside a step — captures result for replay determinism.
-  const verified = await SolidActions.runStep(
-    () => verifySignature(input.headers, input.rawBody, secret),
-    { name: 'verify-signature' }
-  );
-
-  if (!verified) {
-    await SolidActions.respond({ status: 401, body: 'invalid signature' });
-    return;
-  }
-
-  await SolidActions.respond({ ok: true });
-  // ... continue with durable work steps
-}
-
-export const workflow = defineWorkflow({
-  name: 'verified-webhook',
-  run: (ctx) => webhookWorkflow(ctx.input, ctx.vars.WEBHOOK_SECRET as string),
-});
-```
-
-Set the secret before deploy (global env set has no auto-detect — pass `-s` explicitly):
-
-```bash
-solidactions env set my-project WEBHOOK_SECRET "your-shared-secret-here" -e production
-# or global:
-solidactions env set WEBHOOK_SECRET "your-shared-secret-here" -s
-```
-
-(Verify SDK function names against `.solidactions/sdk-reference.md` if the SDK has been updated since this skill was authored.)
+If you genuinely need a non-gateway auth scheme (custom algorithm, multi-header composite, vendor-specific envelope), file a feature request — do not attempt to read headers from `ctx.input`.
 
 ## Recipe — Schedule (cron) Trigger
 
@@ -668,7 +616,7 @@ Top failure modes to check first:
 
 1. Missing env var → check `solidactions env list my-project`
 2. SDK function not found → check `.solidactions/sdk-reference.md` for the actual name
-3. Webhook signature failures → confirm `WEBHOOK_SECRET` matches the sender's value with `solidactions env list my-project`
+3. Webhook signature failures → retrieve the generated secret with `solidactions webhook secret <project>` and confirm it matches the value configured in your sender.
 4. Schedule not firing → confirm `solidactions schedule list my-project` shows it active
 5. Stale code being executed → re-deploy with `solidactions project deploy my-project ./ -e production`
 

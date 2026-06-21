@@ -13,12 +13,16 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
    - For any other non-deterministic op with no SDK primitive (calling an external API, reading a file), wrap the call in `SolidActions.runStep(...)` so its output is captured for replay.
    - *Why: workflows replay on resume; non-deterministic values at workflow scope cause divergence. But each call to `SolidActions.now()` / `randomUUID()` creates a visible checkpoint step — 3 primitives in a loop body = 3× step noise per iteration. Using the primitives **only for values that cross step boundaries** gets correctness without polluting `run view --steps` output.*
 
-2. **Wait-mode webhooks: `SolidActions.respond(body)` is the ONLY way to deliver a response body.**
-   - `await SolidActions.respond({ ... })` sends the HTTP body and unblocks the caller. Returning a value from the workflow function does **NOT** send anything — the runtime ignores the return value.
+2. **Wait-mode webhooks: returning a value delivers a `200` body; use `respond()` to override status or headers.**
+   - **Default path:** the workflow's return value is delivered as the `HTTP 200` body. If the function returns `{ result }`, the caller gets `200 {"result": ...}`.
+   - **`await SolidActions.respond(body, opts?)` overrides the response** — use it for early delivery (before the workflow finishes) or non-200 responses:
+     - `respond(body)` — early `200` response, workflow continues in background.
+     - `respond(body, { status: 404 })` — return a non-200 status.
+     - `respond(body, { status: 201, headers: { 'X-Request-Id': id } })` — custom status + headers.
    - This applies to both patterns:
-     - **Simple request-response:** call `respond(body)` then `return` (see "Wait-mode Webhook with Synchronous Response" recipe).
+     - **Simple request-response:** return a value (200 body) OR call `respond(body)` then `return` (see "Wait-mode Webhook with Synchronous Response" recipe).
      - **Early response + background work:** call `respond(body)` early, then continue with steps (see "Webhook with Early Response + Background Work" recipe).
-   - *Why: a wait-mode workflow that runs successfully but never calls `respond()` looks like `HTTP 401 {"error":"Unauthorized"}` to the caller — a misleading symptom with no auth connection, burns hours to diagnose. Webhook callers (Stripe, GitHub, etc.) also time out fast, so the early-response variant exists for when you need to keep working after sending the body.*
+   - *Why: the return-value→200-body path is the simplest default — most webhooks just `return { ok: true }`. `respond()` exists for non-200 responses, early delivery, and custom headers. Webhook callers (Stripe, GitHub, etc.) time out fast, so the early-response variant exists when you need to keep working after sending the body.*
 
 3. **Trigger choice: default to `instant`. Use `wait` only with explicit user intent.**
    - `instant` triggers fire as soon as the event arrives — correct for ~80% of cases (form submissions, webhooks, scheduled events).
@@ -118,21 +122,39 @@ workflows:
         timeout: 30
 ```
 
-### Common trap — `return` instead of `respond()`
+### When to use `respond()` vs. `return`
+
+**Returning a value** is the default: the workflow's return value becomes the `HTTP 200` body.
 
 ```typescript
-// ❌ Workflow runs successfully but the caller gets HTTP 401 {"error":"Unauthorized"}.
-// In wait-mode the runtime does NOT read the return value as the response body.
+// ✅ Simple case — return value is delivered as 200 body
 async function formatWorkflow(input: FormatInput) {
   const linkedin = await SolidActions.runStep(
     () => transformMarkdown(input.markdown),
     { name: 'format' },
   );
-  return { linkedin };   // silently ignored — gateway returns 401
+  return { linkedin };   // caller gets HTTP 200 { "linkedin": "..." }
 }
 ```
 
-The 401 is misleading — there's no auth problem; the gateway has no body to return and falls through to its default error. Replace `return { linkedin }` with `await SolidActions.respond({ linkedin })` to fix.
+**Use `respond()` when you need early delivery or a non-200 status:**
+
+```typescript
+// ✅ Non-200 status
+async function validateWebhook(input: ValidateInput) {
+  if (!input.token) {
+    await SolidActions.respond({ error: 'missing token' }, { status: 400 });
+    return;
+  }
+  return { valid: true };   // 200 body
+}
+
+// ✅ Early response — workflow continues in background after respond()
+async function submitWorkflow(input: FormInput) {
+  await SolidActions.respond({ accepted: true });   // unblocks the HTTP caller immediately
+  await SolidActions.runStep(() => heavyProcessing(input), { name: 'process' });
+}
+```
 
 ## Recipe — Webhook with Early Response + Background Work
 

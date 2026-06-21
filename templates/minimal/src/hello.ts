@@ -37,6 +37,8 @@ async function helloWorkflow(input: HelloInput, greetingVar: string): Promise<He
     name: "build-greeting",
   });
 
+  // Use the SDK time primitive at workflow scope: it records on first execution
+  // and replays the same value, so this timestamp stays deterministic.
   const processedAtMs = await SolidActions.now();
   const processedAt = new Date(processedAtMs).toISOString();
 

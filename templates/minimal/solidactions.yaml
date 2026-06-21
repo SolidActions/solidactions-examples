@@ -9,13 +9,10 @@ workflows:
     webhook:
       method: [POST]
       auth: hmac          # Gateway verifies HMAC signatures before the workflow runs.
-                          # Requires WEBHOOK_SECRET env var to be set.
+                          # The secret is auto-generated per workflow — retrieve it with:
+                          #   solidactions webhook secret __PROJECT_NAME__
+                          # Set the same value in your sender (e.g. Telegram setWebhook secret_token).
 
 env:
-  # Gateway-consumed: the platform reads this to verify incoming HMAC signatures.
-  # Your workflow code does NOT reference this — the gateway rejects bad
-  # signatures before the container starts.
-  - WEBHOOK_SECRET
-
-  # Example workflow-consumed env var (read via ctx.vars.GREETING):
+  # Workflow-consumed env vars (read via ctx.vars.GREETING):
   - GREETING
