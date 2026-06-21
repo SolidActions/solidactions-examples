@@ -24,7 +24,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
 
 4. **Webhook auth: configure in `solidactions.yaml` first — custom workflow code is a fallback, not the default.**
    - The platform verifies signatures at the gateway when you declare `auth:` in the webhook config. Options: `hmac` (default), `basic`, `header`, `none`. See the `solidactions.yaml` schema recipe below for the full table.
-   - Only write in-workflow HMAC verification when the platform's schemes don't cover yours — non-SHA256 algorithms, multi-header schemes, vendor-specific flows. See "Recipe — Custom Webhook Auth" for that fallback.
+   - Do not write in-workflow auth verification — `ctx.input` never contains headers or rawBody, so any in-workflow signature check silently validates nothing. Gateway-level auth (`auth: hmac` / `auth: header`) is the only supported path. If you need a non-standard scheme, file a feature request.
    - *Why: AIs default to rolling their own HMAC in workflow code, but the platform already does this at the gateway — before any container spins up. Gateway-level auth rejects bad signatures for free; in-workflow verification pays compute for each rejection.*
 
 5. **For schedules, set the cron string in `solidactions.yaml`, not in code.** Use `solidactions schedule set` to activate a schedule after deploy. *Why: declarative schedules in YAML survive workflow code refactors; programmatic schedules drift.*
@@ -527,62 +527,11 @@ This hint fires today on `project deploy`. Other commands (`env list/set`, `sche
 
 ## Recipe — Custom Webhook Auth (fallback only)
 
-Only use in-workflow verification when the platform's gateway-level auth (`hmac` / `basic` / `header` — see YAML schema recipe above) doesn't fit your scheme. Examples of when you'd reach for this:
-- Non-SHA256 signature algorithms
-- Multi-header or nested-header schemes
-- Vendor-specific auth flows the gateway doesn't recognize
+**What `ctx.input` contains for webhook triggers:** the parsed request body merged with query-string parameters — nothing else. Request headers and the raw body string are never available in `ctx.input`. Do not declare `interface WebhookInput { headers: ...; rawBody: ... }` — those fields will always be `undefined` at runtime and the code will silently validate nothing.
 
-For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary.
+**The correct path for HMAC / secret-header auth is the gateway** (`auth: hmac` or `auth: header` in `solidactions.yaml`) keyed to the workflow's generated secret. For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary. Retrieve the secret with `solidactions webhook secret <project>` (or `webhook list --show-secrets`) and set the same value in your sender (e.g. Telegram `setWebhook secret_token`, GitHub webhook settings, Stripe dashboard). In-code header reading is not supported and produces a silent no-op.
 
-```typescript
-import { SolidActions, defineWorkflow } from '@solidactions/sdk';
-import { createHmac, timingSafeEqual } from 'crypto';
-
-interface WebhookInput {
-  headers: Record<string, string>;
-  rawBody: string;
-  body: Record<string, unknown>;
-}
-
-async function verifySignature(headers: Record<string, string>, rawBody: string, secret: string) {
-  const signature = headers['x-signature'] || headers['x-hub-signature-256'] || '';
-  // Strip any "sha256=" prefix if present
-  const sigHex = signature.replace(/^sha256=/, '');
-  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  return timingSafeEqual(Buffer.from(sigHex), Buffer.from(expected));
-}
-
-async function webhookWorkflow(input: WebhookInput, secret: string) {
-  // Verify signature inside a step — captures result for replay determinism.
-  const verified = await SolidActions.runStep(
-    () => verifySignature(input.headers, input.rawBody, secret),
-    { name: 'verify-signature' }
-  );
-
-  if (!verified) {
-    await SolidActions.respond({ status: 401, body: 'invalid signature' });
-    return;
-  }
-
-  await SolidActions.respond({ ok: true });
-  // ... continue with durable work steps
-}
-
-export const workflow = defineWorkflow({
-  name: 'verified-webhook',
-  run: (ctx) => webhookWorkflow(ctx.input, ctx.vars.WEBHOOK_SECRET as string),
-});
-```
-
-Set the secret before deploy (global env set has no auto-detect — pass `-s` explicitly):
-
-```bash
-solidactions env set my-project WEBHOOK_SECRET "your-shared-secret-here" -e production
-# or global:
-solidactions env set WEBHOOK_SECRET "your-shared-secret-here" -s
-```
-
-(Verify SDK function names against `.solidactions/sdk-reference.md` if the SDK has been updated since this skill was authored.)
+If you genuinely need a non-gateway auth scheme (custom algorithm, multi-header composite, vendor-specific envelope), file a feature request — do not attempt to read headers from `ctx.input`.
 
 ## Recipe — Schedule (cron) Trigger
 
