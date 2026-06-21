@@ -524,11 +524,9 @@ This hint fires today on `project deploy`. Other commands (`env list/set`, `sche
 - **Don't manually craft `.solidactions/config.json` just to switch workspaces** — `workspace set --local` does it correctly. Manual files risk the legacy slug/UUID-mismatch trap, where a partial hand-written file lacks the `workspace` slug and `whoami` then displays a slug from one layer with a UUID from another. API calls still use the correct UUID, but the display is wrong.
 - **Don't commit `.solidactions/config.json` to git.** Even the partial workspace-pin form is tenant-identifying; the full tenant-pin form holds your API key. The CLI prompts to add `.solidactions/` to `.gitignore` on first `workspace set --local`.
 
-> **`ctx.input` shape for webhook triggers:** the parsed request body merged with URL query-string parameters (equivalent to `$request->all()` on the server). Request headers, the raw body string, and HTTP method are NOT available in `ctx.input`. Use gateway-level `auth: header` or `auth: hmac` for secret validation — do not attempt to read `ctx.input.headers`.
+## Recipe — Custom Webhook Auth (use gateway auth)
 
-## Recipe — Custom Webhook Auth (fallback only)
-
-**What `ctx.input` contains for webhook triggers:** the parsed request body merged with query-string parameters — nothing else. Request headers and the raw body string are never available in `ctx.input`. Do not declare `interface WebhookInput { headers: ...; rawBody: ... }` — those fields will always be `undefined` at runtime and the code will silently validate nothing.
+**What `ctx.input` contains for webhook triggers:** the parsed request body merged with query-string parameters — nothing else. Request headers, the raw body string, and HTTP method are NOT available in `ctx.input`. Do not declare `interface WebhookInput { headers: ...; rawBody: ... }` — those fields will always be `undefined` at runtime and the code will silently validate nothing.
 
 **The correct path for HMAC / secret-header auth is the gateway** (`auth: hmac` or `auth: header` in `solidactions.yaml`) keyed to the workflow's generated secret. For standard HMAC with `X-Hub-Signature-256` / `X-Signature-256` / `Stripe-Signature`, use `auth: hmac` in YAML — the gateway handles it, and this entire recipe is unnecessary. Retrieve the secret with `solidactions webhook secret <project>` (or `webhook list --show-secrets`) and set the same value in your sender (e.g. Telegram `setWebhook secret_token`, GitHub webhook settings, Stripe dashboard). In-code header reading is not supported and produces a silent no-op.
 
