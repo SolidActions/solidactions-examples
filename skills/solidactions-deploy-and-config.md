@@ -17,7 +17,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
 
 3. **Secrets: set via CLI with `-s` when the key name doesn't hint at sensitivity.** Never hardcode in source.
-   - The CLI auto-detects keys matching `/secret|key|token|password|credential/i` and flags them secret automatically — `STRIPE_API_KEY`, `GITHUB_TOKEN`, `WEBHOOK_SECRET` don't need explicit `-s`.
+   - The CLI auto-detects keys matching `/secret|key|token|password|credential/i` and flags them secret automatically — `STRIPE_API_KEY`, `GITHUB_TOKEN` don't need explicit `-s`.
    - For names the auto-detect misses — `DATABASE_URL`, `REDIS_URL`, `MONGO_URI`, connection strings, URLs with embedded auth, private service endpoints — **always pass `-s` explicitly**.
    - When in doubt, pass `-s`. Adding it to an already-auto-detected secret is a no-op.
    - *Why: env vars are tenant-isolated, but without the secret flag the value is plaintext in the UI and leaks via copy-paste, screenshots, and support conversations. Connection strings especially carry credentials in the value itself.*
@@ -85,9 +85,9 @@ For a minimal webhook with all defaults, just `trigger: webhook` — no `webhook
 
 | Strategy | YAML | How It Works |
 |---|---|---|
-| **HMAC** (default) | `hmac` | SHA-256 signature verified via `X-Hub-Signature-256`, `X-Signature-256`, or `Stripe-Signature` headers. Store the shared secret in `WEBHOOK_SECRET` — the gateway reads it. |
+| **HMAC** (default) | `hmac` | SHA-256 signature verified via `X-Hub-Signature-256`, `X-Signature-256`, or `Stripe-Signature` headers. The secret is the auto-generated `workflow.webhook_secret` — retrieve it with `solidactions webhook secret <project>` and set the same value in your sender. |
 | **Basic** | `basic` | HTTP Basic Auth with stored credentials. |
-| **Header** | `header` | Custom header (default `X-API-Key`) compared against the webhook secret. Change the header name with `auth_header`. |
+| **Header** | `header` | Custom header (default `X-API-Key`) compared against the auto-generated `workflow.webhook_secret`. Retrieve it with `solidactions webhook secret <project>` and pass it as the header value in your sender. Change the header name with `auth_header`. |
 | **None** | `none` | No authentication. All requests accepted. Only for truly public endpoints. |
 
 Prefer `hmac` or `header` — both are enforced at the gateway before the workflow container spins up. Rejected requests cost nothing.
@@ -239,7 +239,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
    cd my-project
    ```
 
-   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `WEBHOOK_SECRET` + `GREETING`. **Edit it to add any additional env vars your workflow needs** before deploying:
+   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `GREETING` as an example env var. **Edit it to add any additional env vars your workflow needs** before deploying:
 
    ```yaml
    project: my-project
@@ -254,7 +254,6 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
          method: [POST]
 
    env:
-     - WEBHOOK_SECRET          # (from template) gateway-consumed HMAC secret
      - GREETING                # (from template) workflow-consumed example
      - SENDGRID_API_KEY        # add any additional env vars the workflow will need
      - DATABASE_URL
@@ -619,7 +618,7 @@ Top failure modes to check first:
 
 1. Missing env var → check `solidactions env list my-project`
 2. SDK function not found → check `.solidactions/sdk-reference.md` for the actual name
-3. Webhook signature failures → confirm `WEBHOOK_SECRET` matches the sender's value with `solidactions env list my-project`
+3. Webhook signature failures → retrieve the generated secret with `solidactions webhook secret <project>` and confirm it matches the value configured in your sender.
 4. Schedule not firing → confirm `solidactions schedule list my-project` shows it active
 5. Stale code being executed → re-deploy with `solidactions project deploy my-project ./ -e production`
 
