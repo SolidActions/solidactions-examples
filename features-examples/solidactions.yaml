@@ -14,7 +14,7 @@ deploy:
 
 env:
   # Seed for deterministic random in retry tests (configure via .env or UI)
-  - SOLIDACTIONS_TEST_SEED
+  - TEST_SEED
 
   # URL and secret for message-receiver to trigger message-sender workflow
   - SENDER_WEBHOOK_URL
