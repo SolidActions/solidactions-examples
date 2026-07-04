@@ -9,7 +9,7 @@
  * 3. Finalize - Report results
  *
  * The unreliable operation uses seededRandom for deterministic testing.
- * With SOLIDACTIONS_TEST_SEED set, the same sequence of failures will occur.
+ * With TEST_SEED set, the same sequence of failures will occur.
  */
 
 import { SolidActions, defineWorkflow } from '@solidactions/sdk';
@@ -113,11 +113,9 @@ async function retryWorkflow(input: RetryInput): Promise<RetryResult> {
 export const retryTest = defineWorkflow<RetryInput, RetryResult>({
   name: 'retry-workflow',
   run: (ctx) => {
-    // Seed the deterministic PRNG. SOLIDACTIONS_TEST_SEED carries the reserved
-    // SOLIDACTIONS_ prefix, so it is a system var excluded from ctx.vars by
-    // design (see ContextAdapter.isReservedKey) — read it from process.env,
-    // where the runner injects it. Falsy → time-based fallback (prior behavior).
-    seedRandom(process.env.SOLIDACTIONS_TEST_SEED);
+    // Seed the deterministic PRNG. TEST_SEED is a regular project var
+    // (declared in solidactions.yaml). Falsy → time-based fallback.
+    seedRandom(process.env.TEST_SEED);
     return retryWorkflow(ctx.input);
   },
 });

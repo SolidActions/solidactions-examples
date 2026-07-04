@@ -2,8 +2,8 @@
  * Seeded Random Number Generator
  *
  * Provides deterministic randomness for testing. When a seed is supplied
- * (workflows pass `process.env.SOLIDACTIONS_TEST_SEED` — a reserved system var
- * excluded from ctx.vars by design), all random values will be reproducible.
+ * (workflows pass `process.env.TEST_SEED`, a regular project var declared in
+ * solidactions.yaml), all random values will be reproducible.
  *
  * Uses a simple mulberry32 PRNG algorithm.
  *
@@ -46,10 +46,9 @@ let rng: (() => number) | null = null;
  * Initialize the global seeded PRNG.
  *
  * Workflows call this once at the top of their run() body, passing
- * `process.env.SOLIDACTIONS_TEST_SEED` (a reserved system var, excluded from
- * ctx.vars). When a seed is provided, the subsequent `seededRandom()` sequence
- * is deterministic; otherwise a time-based seed is used (same fallback as the
- * original module-load behavior).
+ * `process.env.TEST_SEED`. When a seed is provided, the subsequent
+ * `seededRandom()` sequence is deterministic; otherwise a time-based seed is
+ * used (same fallback as the original module-load behavior).
  *
  * @param seed - Optional string seed. Falsy values fall back to Date.now().
  */
