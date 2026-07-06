@@ -1,6 +1,6 @@
 ---
 name: solidactions-deploy-and-config
-description: Use when the user mentions deploying a SolidActions project, setting environment variables, configuring webhook triggers, scheduling workflows (cron), or debugging a workflow run. Encodes the CLI-only deploy rule, env-set discipline, webhook auth recipes, schedule setup, multi-env deploy defaults, and run debugging.
+description: Use when the user mentions deploying a SolidActions project, setting variables, configuring webhook triggers, scheduling workflows (cron), or debugging a workflow run. Encodes the CLI-only deploy rule, env-set discipline, webhook auth recipes, schedule setup, multi-env deploy defaults, and run debugging.
 ---
 
 ## Hard Rules
@@ -11,7 +11,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
    - The CLI's default is `-e dev` on mature projects — intentional, so repeat deploys during development don't accidentally hit production.
    - If the user asks to "deploy" / "ship" a new project without specifying an env → use `-e production`. If they say "try it in dev" or "deploy to staging" → deploy straight to that env (no production needed first).
    - If you see a "Project 'X' doesn't have a Y environment" error, either deploy to an environment that **does** exist, or pass `--create` to add the requested one. `--create` makes a new standalone environment in the family — use it when the user wants that environment to exist.
-   - **To create a project without deploying code, use `solidactions project create <name>`.** It hits the same `/api/v1/projects` endpoint with no source upload or build. `-e` defaults to `production`, so `solidactions project create my-project` creates the production environment; pass `-e dev` / `-e staging` to create that environment instead (standalone is fine). Reach for this when the project should exist before code is ready — e.g. to set env vars up front, or to pre-create projects in CI — instead of doing a throwaway `project deploy` just to register the record.
+   - **To create a project without deploying code, use `solidactions project create <name>`.** It hits the same `/api/v1/projects` endpoint with no source upload or build. `-e` defaults to `production`, so `solidactions project create my-project` creates the production environment; pass `-e dev` / `-e staging` to create that environment instead (standalone is fine). Reach for this when the project should exist before code is ready — e.g. to set variables up front, or to pre-create projects in CI — instead of doing a throwaway `project deploy` just to register the record.
    - *Why: environments are first-class and independent — there is no "production must exist first" rule (a standalone `dev` project is valid). Production is just the sensible default for a project's primary environment, so prefer it when the user doesn't say otherwise.*
 
 2. **Deploy via `solidactions project deploy <project-name> [path]` only.** Never curl the API directly. *Why: the CLI handles auth, project resolution, multi-env routing, and snapshot cache invalidation.*
@@ -20,7 +20,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
    - The CLI auto-detects keys matching `/secret|key|token|password|credential/i` and flags them secret automatically — `STRIPE_API_KEY`, `GITHUB_TOKEN` don't need explicit `-s`.
    - For names the auto-detect misses — `DATABASE_URL`, `REDIS_URL`, `MONGO_URI`, connection strings, URLs with embedded auth, private service endpoints — **always pass `-s` explicitly**.
    - When in doubt, pass `-s`. Adding it to an already-auto-detected secret is a no-op.
-   - *Why: env vars are tenant-isolated, but without the secret flag the value is plaintext in the UI and leaks via copy-paste, screenshots, and support conversations. Connection strings especially carry credentials in the value itself.*
+   - *Why: variables are tenant-isolated, but without the secret flag the value is plaintext in the UI and leaks via copy-paste, screenshots, and support conversations. Connection strings especially carry credentials in the value itself.*
 
 4. **Webhook auth: configure in `solidactions.yaml` first — custom workflow code is a fallback, not the default.**
    - The platform verifies signatures at the gateway when you declare `auth:` in the webhook config. Options: `hmac` (default), `basic`, `header`, `none`. See the `solidactions.yaml` schema recipe below for the full table.
@@ -31,7 +31,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
 
 ## Recipe — `solidactions.yaml` Schema
 
-The YAML file is the source of truth for non-code config: workflows, triggers, webhook auth, env var declarations, and OAuth mappings. Get this right before writing workflow code — most "how do I do X at the platform level" questions are answered here, not in TypeScript.
+The YAML file is the source of truth for non-code config: workflows, triggers, webhook auth, variable declarations, and OAuth mappings. Get this right before writing workflow code — most "how do I do X at the platform level" questions are answered here, not in TypeScript.
 
 ### Minimal shape
 
@@ -156,9 +156,9 @@ Runs created this way are recorded with `triggered_by = mcp`. MCP arguments arri
 - **OAuth** (Claude Desktop, Cursor): point the client at the URL, approve the consent screen — you pick the workspace and whether the connection can call **all** exposed workflows or a **selected allowlist**.
 - **API token** (programmatic): send `Authorization: Bearer <token>` plus `X-Workspace-Id: <workspace-id>`. Mint a token under **Settings → API Keys** ("Grant access to all workflows").
 
-### Env var declaration forms
+### Variable declaration forms
 
-The `env:` block declares what env vars the workflow expects. Three forms:
+The `env:` block declares what variables the workflow expects. Three forms:
 
 ```yaml
 env:
@@ -176,7 +176,7 @@ env:
 ```
 
 Rules:
-- An env var maps to **either** a global variable **or** an OAuth connection — not both.
+- A variable maps to **either** a global variable **or** an OAuth connection — not both.
 - OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
 - Workflow code accesses all three forms via `ctx.vars` in the `defineWorkflow` run body: `ctx.vars.GITHUB_TOKEN`, `ctx.vars.SHARED_API_KEY`, etc. Plain and global-mapped vars resolve as strings; OAuth-mapped vars resolve as a `ConnectionVar` (with `key`, `proxyUrl`, `proxyToken`).
 
@@ -228,7 +228,7 @@ See [setup-block-tools/](../setup-block-tools/) for a runnable example.
 
 ## Recipe — New Project (YAML-first)
 
-The correct order for bootstrapping a new project. Key move: **declare env vars in YAML, deploy, then set values** — not "ask the user to fill the dashboard UI before deploying." The platform accepts deploys with declared-but-empty env vars; values are only required at runtime.
+The correct order for bootstrapping a new project. Key move: **declare variables in YAML, deploy, then set values** — not "ask the user to fill the dashboard UI before deploying." The platform accepts deploys with declared-but-empty variables; values are only required at runtime.
 
 ### Flow
 
@@ -239,7 +239,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
    cd my-project
    ```
 
-   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `GREETING` as an example env var. **Edit it to add any additional env vars your workflow needs** before deploying:
+   The generated `solidactions.yaml` includes a minimal webhook workflow and declares `GREETING` as an example variable. **Edit it to add any additional variables your workflow needs** before deploying:
 
    ```yaml
    project: my-project
@@ -255,12 +255,12 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
 
    env:
      - GREETING                # (from template) workflow-consumed example
-     - SENDGRID_API_KEY        # add any additional env vars the workflow will need
+     - SENDGRID_API_KEY        # add any additional variables the workflow will need
      - DATABASE_URL
      - LOG_LEVEL
    ```
 
-2. **First deploy creates the project and registers env declarations.** The platform accepts this even when declared env vars have no values yet:
+2. **First deploy creates the project and registers variable declarations.** The platform accepts this even when declared variables have no values yet:
 
    ```bash
    solidactions project deploy my-project ./ -e production
@@ -268,7 +268,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
 
    *Optional — create first, deploy later:* to make the project exist before shipping code (e.g. to set env values up front, or to provision it in CI), run `solidactions project create my-project -e production` first. It creates the project + production environment with no build; the later `project deploy` then just ships code into the existing record.
 
-3. **AI sets values it knows.** For any env var the AI has a value for (non-sensitive config, well-known defaults, its own test fixtures), set via CLI. Apply the `-s` discipline from Rule 3:
+3. **AI sets values it knows.** For any variable the AI has a value for (non-sensitive config, well-known defaults, its own test fixtures), set via CLI. Apply the `-s` discipline from Rule 3:
 
    ```bash
    solidactions env set my-project LOG_LEVEL "info" -e production
@@ -277,7 +277,7 @@ The correct order for bootstrapping a new project. Key move: **declare env vars 
 
 4. **AI gives the user a copy-pasteable list for unknowns.** Do NOT tell the user to "go set this in the dashboard UI." Give them the exact CLI commands:
 
-   > I need these env vars set — run these commands (or set them in the dashboard UI):
+   > I need these variables set — run these commands (or set them in the dashboard UI):
    > ```bash
    > solidactions env set my-project SENDGRID_API_KEY <your-sendgrid-key> -e production
    > solidactions env set my-project DATABASE_URL <your-db-url> -s -e production
@@ -338,7 +338,7 @@ deploy:
 
 *Why: a deploy bundle that carries `.env` leaks secrets into the artifact and the build cache. The CLI hard-excludes them and prints a one-line bundle summary (file count, whether `.gitignore` was applied, exclude-rule count) so over-exclusion is visible at deploy time — don't try to "force-include" a secret file.*
 
-## Recipe — Set Environment Variables
+## Recipe — Set Variables
 
 The `-e <env>` flag picks the environment (default `dev`). The `-s` flag marks the value as a secret (masked in the UI). The CLI auto-detects keys matching `/secret|key|token|password|credential/i` as secrets — but for connection strings and other non-obvious secrets, pass `-s` explicitly.
 
@@ -419,9 +419,9 @@ VALUE=$(awk -F= '/^DATABASE_URL=/ {sub(/^DATABASE_URL=/,""); gsub(/^"|"$/,""); p
 solidactions env set target-project DATABASE_URL "$VALUE" -s -e production
 ```
 
-### Environment variable inheritance
+### Variable inheritance
 
-Project env var values cascade across environments:
+Project variable values cascade across environments:
 
 | Environment | Resolution |
 |---|---|
@@ -567,7 +567,7 @@ workflows:
     schedule: "0 9 * * *"
 ```
 
-**Deploy auto-creates and enables the schedule — no separate activation step is needed.** The platform parses `solidactions.yaml` during build and syncs Schedule records with `enabled: true` by default. If env vars aren't set yet when the first tick fires, the run fails fast at `getConfig()` (safe, but shows as a failed run in the dashboard — set env vars before the next tick to recover).
+**Deploy auto-creates and enables the schedule — no separate activation step is needed.** The platform parses `solidactions.yaml` during build and syncs Schedule records with `enabled: true` by default. If variables aren't set yet when the first tick fires, the run fails fast at `getConfig()` (safe, but shows as a failed run in the dashboard — set variables before the next tick to recover).
 
 ```bash
 # Deploy activates any new/changed schedules from yaml:
@@ -634,7 +634,7 @@ solidactions run list my-project -e staging
 
 Top failure modes to check first:
 
-1. Missing env var → check `solidactions env list my-project`
+1. Missing variable → check `solidactions env list my-project`
 2. SDK function not found → check `.solidactions/sdk-reference.md` for the actual name
 3. Webhook signature failures → retrieve the generated secret with `solidactions webhook secret <project>` and confirm it matches the value configured in your sender.
 4. Schedule not firing → confirm `solidactions schedule list my-project` shows it active

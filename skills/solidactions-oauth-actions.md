@@ -56,7 +56,7 @@ The proxy is a thin forwarder. It validates the run token, verifies the connecti
 
 > **Path prefixes vary by provider.** Some catalog `path` fields keep the upstream API version (Gmail: `/gmail/v1/users/.../messages/send`); others drop it (Google Calendar: `/calendars/{{calendarId}}/events`); custom modifiers use a non-RESTful slug (`/gmail/get-emails`). All three forms work — the catalog stores whatever the broker registered. **Use the `path` field verbatim** (with placeholders substituted) — do not strip or add prefixes based on training-memory of the upstream API.
 
-> **The connection key is masked in the UI.** When you view your project's Environment page, OAuth connection values appear as masked dots — same UX as other secret env vars. Click the reveal button to see the value. Treat the connection key as a credential: don't paste it into chat, logs, or commit messages.
+> **The connection key is masked in the UI.** When you view your project's Environment page, OAuth connection values appear as masked dots — same UX as other secret variables. Click the reveal button to see the value. Treat the connection key as a credential: don't paste it into chat, logs, or commit messages.
 
 ## What the Proxy Handles For You (and what it does NOT)
 

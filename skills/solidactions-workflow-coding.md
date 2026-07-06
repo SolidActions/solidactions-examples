@@ -33,8 +33,8 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
    - The `name` option passed to `SolidActions.runStep(fn, { name: '...' })` is used as the cache key. Renaming a step across deploys breaks in-flight runs.
    - *Why: step caching uses the name as the lookup key; rename = cache miss = re-execution of already-completed work.*
 
-5. **Platform vars: access via `ctx.vars.<NAME>`, not `process.env.<NAME>`.** OAuth connections, declared env vars, and per-project config are all available as `ctx.vars.<NAME>` inside the `run` body — they are NOT on `process.env`. Only `process.env.SOLIDACTIONS_*` (SDK infra keys) and `WORKFLOW_INPUT_URL` are reserved on `process.env`.
-   - *Why: the new `defineWorkflow` API threads all project vars through `ctx.vars`, keeping env vars scoped to the run rather than leaking into the global process environment.*
+5. **Platform vars: access via `ctx.vars.<NAME>`, not `process.env.<NAME>`.** OAuth connections, declared variables, and per-project config are all available as `ctx.vars.<NAME>` inside the `run` body — they are NOT on `process.env`. Only `process.env.SOLIDACTIONS_*` (SDK infra keys) and `WORKFLOW_INPUT_URL` are reserved on `process.env`.
+   - *Why: the new `defineWorkflow` API threads all project vars through `ctx.vars`, keeping variables scoped to the run rather than leaking into the global process environment.*
 
 6. **Secrets: never hardcode. Declare in `solidactions.yaml` and document in `.env.example`.**
    - Setting the actual value happens via `solidactions env set` (covered by the deploy-and-config skill).
@@ -639,5 +639,5 @@ A TypeScript type like `{ total: number; day: string }` will compile but be wron
 ## Pointers
 
 - Full SDK reference: `.solidactions/sdk-reference.md`
-- Webhook auth, env var management, deployment: see the `solidactions-deploy-and-config` skill.
+- Webhook auth, variable management, deployment: see the `solidactions-deploy-and-config` skill.
 - Exposing a workflow to an AI agent as an MCP tool (sync run, `respond()` early return, `workflow_result` for long runs): see the "Exposing a workflow as an MCP tool" recipe in `solidactions-deploy-and-config`.
