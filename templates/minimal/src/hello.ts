@@ -17,8 +17,8 @@ interface HelloOutput {
 // skill for the full rules.
 
 async function buildGreeting(name: string, greeting: string): Promise<string> {
-  // GREETING is read here (inside a step) because env vars are technically
-  // non-deterministic — the step's return value captures it for replay.
+  // `greeting` is passed in from workflow scope (ctx.vars.GREETING). Reading
+  // ctx.vars at workflow scope is fine — vars are stable for the whole run.
   const prefix = greeting ?? "Hello";
   return `${prefix}, ${name}!`;
 }
