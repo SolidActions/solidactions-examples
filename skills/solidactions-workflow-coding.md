@@ -78,7 +78,7 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
 
 ## Recipe — Wait-mode Webhook with Synchronous Response
 
-For a simple request-response webhook (`response.mode: wait` in `solidactions.yaml`) that does fast work and returns a value to the caller. **You MUST call `SolidActions.respond(body)` — returning a value from the workflow function alone does NOT send anything to the caller.**
+For a simple request-response webhook (`response.mode: wait` in `solidactions.yaml`) that does fast work and returns a value to the caller. **The simplest path: `return` a value — it is delivered as the HTTP `200` body. Call `SolidActions.respond(body, opts?)` instead when you need a non-`200` status, custom headers, or to respond before the workflow finishes.**
 
 ```typescript
 import { SolidActions, defineWorkflow } from '@solidactions/sdk';
@@ -96,7 +96,8 @@ async function formatWorkflow(input: FormatInput): Promise<void> {
     { name: 'format' },
   );
 
-  // ✅ respond() delivers the HTTP response body.
+  // ✅ respond() delivers the HTTP response body — useful here if you also
+  // want to set a custom header or status alongside the body.
   await SolidActions.respond({ linkedin });
   // Nothing to return — respond() already sent the body.
 }
@@ -105,6 +106,18 @@ export const workflow = defineWorkflow({
   name: 'format-linkedin',
   run: (ctx) => formatWorkflow(ctx.input),
 });
+```
+
+The simplest variant of the same workflow skips `respond()` entirely:
+
+```typescript
+async function formatWorkflow(input: FormatInput) {
+  const linkedin = await SolidActions.runStep(
+    () => transformMarkdown(input.markdown),
+    { name: 'format' },
+  );
+  return { linkedin };   // ✅ delivered as the HTTP 200 body — no respond() call needed
+}
 ```
 
 YAML:
