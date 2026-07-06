@@ -1,4 +1,4 @@
-# The CLI replaces __PROJECT_NAME__ with the scaffolded project's name.
+# Project name set by `solidactions init` (from the target directory name).
 project: __PROJECT_NAME__
 
 workflows:

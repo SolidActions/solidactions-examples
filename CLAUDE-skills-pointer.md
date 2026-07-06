@@ -2,7 +2,7 @@ SolidActions workflow project. AI skills are installed in `.claude/skills/` and 
 
 - `solidactions-getting-started` — new-project scaffolding and bootstrap discipline
 - `solidactions-workflow-coding` — editing TS workflow code (SDK rules, determinism, recipes)
-- `solidactions-deploy-and-config` — deploying, env vars, triggers, debugging runs
+- `solidactions-deploy-and-config` — deploying, variables, triggers, debugging runs
 
 Full SDK reference: `.solidactions/sdk-reference.md`. Read before using any SDK function you do not know cold.
 

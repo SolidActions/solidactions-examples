@@ -33,8 +33,8 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
    - The `name` option passed to `SolidActions.runStep(fn, { name: '...' })` is used as the cache key. Renaming a step across deploys breaks in-flight runs.
    - *Why: step caching uses the name as the lookup key; rename = cache miss = re-execution of already-completed work.*
 
-5. **Platform vars: access via `ctx.vars.<NAME>`, not `process.env.<NAME>`.** OAuth connections, declared env vars, and per-project config are all available as `ctx.vars.<NAME>` inside the `run` body — they are NOT on `process.env`. Only `process.env.SOLIDACTIONS_*` (SDK infra keys) and `WORKFLOW_INPUT_URL` are reserved on `process.env`.
-   - *Why: the new `defineWorkflow` API threads all project vars through `ctx.vars`, keeping env vars scoped to the run rather than leaking into the global process environment.*
+5. **Platform vars: access via `ctx.vars.<NAME>`, not `process.env.<NAME>`.** OAuth connections, declared variables, and per-project config are all available as `ctx.vars.<NAME>` inside the `run` body — they are NOT on `process.env`. Only `process.env.SOLIDACTIONS_*` (SDK infra keys) and `WORKFLOW_INPUT_URL` are reserved on `process.env`.
+   - *Why: the new `defineWorkflow` API threads all project vars through `ctx.vars`, keeping variables scoped to the run rather than leaking into the global process environment.*
 
 6. **Secrets: never hardcode. Declare in `solidactions.yaml` and document in `.env.example`.**
    - Setting the actual value happens via `solidactions env set` (covered by the deploy-and-config skill).
@@ -78,7 +78,7 @@ description: Use when writing or modifying TypeScript code in a SolidActions pro
 
 ## Recipe — Wait-mode Webhook with Synchronous Response
 
-For a simple request-response webhook (`response.mode: wait` in `solidactions.yaml`) that does fast work and returns a value to the caller. **You MUST call `SolidActions.respond(body)` — returning a value from the workflow function alone does NOT send anything to the caller.**
+For a simple request-response webhook (`response.mode: wait` in `solidactions.yaml`) that does fast work and returns a value to the caller. **The simplest path: `return` a value — it is delivered as the HTTP `200` body. Call `SolidActions.respond(body, opts?)` instead when you need a non-`200` status, custom headers, or to respond before the workflow finishes.**
 
 ```typescript
 import { SolidActions, defineWorkflow } from '@solidactions/sdk';
@@ -96,7 +96,8 @@ async function formatWorkflow(input: FormatInput): Promise<void> {
     { name: 'format' },
   );
 
-  // ✅ respond() delivers the HTTP response body.
+  // ✅ respond() delivers the HTTP response body — useful here if you also
+  // want to set a custom header or status alongside the body.
   await SolidActions.respond({ linkedin });
   // Nothing to return — respond() already sent the body.
 }
@@ -105,6 +106,18 @@ export const workflow = defineWorkflow({
   name: 'format-linkedin',
   run: (ctx) => formatWorkflow(ctx.input),
 });
+```
+
+The simplest variant of the same workflow skips `respond()` entirely:
+
+```typescript
+async function formatWorkflow(input: FormatInput) {
+  const linkedin = await SolidActions.runStep(
+    () => transformMarkdown(input.markdown),
+    { name: 'format' },
+  );
+  return { linkedin };   // ✅ delivered as the HTTP 200 body — no respond() call needed
+}
 ```
 
 YAML:
@@ -626,5 +639,5 @@ A TypeScript type like `{ total: number; day: string }` will compile but be wron
 ## Pointers
 
 - Full SDK reference: `.solidactions/sdk-reference.md`
-- Webhook auth, env var management, deployment: see the `solidactions-deploy-and-config` skill.
+- Webhook auth, variable management, deployment: see the `solidactions-deploy-and-config` skill.
 - Exposing a workflow to an AI agent as an MCP tool (sync run, `respond()` early return, `workflow_result` for long runs): see the "Exposing a workflow as an MCP tool" recipe in `solidactions-deploy-and-config`.
