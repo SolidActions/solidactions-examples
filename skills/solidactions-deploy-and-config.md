@@ -367,7 +367,7 @@ solidactions env list my-project -e production
 # Bulk push from local .env file:
 solidactions env push my-project ./ -e staging
 
-# Pull resolved variables to a local .env file (feeds `solidactions dev` — see below):
+# Pull resolved variables to a local .env file (a local snapshot for reference/backup — `solidactions dev` does not read it):
 solidactions env pull my-project
 solidactions env pull my-project -e staging
 solidactions env pull my-project -y               # skip secret-confirmation prompt (for scripts)
@@ -375,27 +375,23 @@ solidactions env pull my-project -y               # skip secret-confirmation pro
 
 ### Local testing with `solidactions dev`
 
-<!-- Requires CLI F-C6 (--env-file / ./.env auto-load); merge this doc at or after that CLI change ships. -->
+`solidactions dev <file>` runs a workflow locally against an **in-memory mock** — no deploy, no sandbox. It never reads a local `.env`, and it never reads or leaks the host `process.env`; the only source of `ctx.vars` is what the platform resolves for you.
 
-`solidactions dev <file>` runs a workflow locally against an **in-memory mock** — no deploy, no sandbox. It never reads or leaks the host `process.env`; the only source of `ctx.vars` is what the platform resolves for you (plus, once F-C6 ships, a local `.env`).
-
-- **With `-e <env>`:** `dev` fetches the **resolved non-secret vars + OAuth connections** for that environment from the platform (same source as `env pull`) and exposes them on `ctx.vars`.
+- **With `-e <env>`:** `dev` fetches the **resolved non-secret variables + OAuth connections** for that environment from the platform (same source as `env pull`) and exposes them on `ctx.vars`. Secret *values* are not sent — a secret-mapped var shows up as unavailable in `dev`.
 - **Without `-e`:** `ctx.vars` starts **empty** — nothing is fetched.
-- **Secret *values* are never sent to local dev.** The platform withholds secret plaintext from the resolve endpoint, so a secret-mapped var shows up as unavailable in `dev`. To test a secret-dependent workflow, `env pull` the resolved values (including secrets) into a local `.env`, then run `dev` — it auto-loads `./.env` when present, or point it at another file with `--env-file <path>`.
+- **To exercise a workflow that needs a secret locally:** set a test value in your dev environment, then run `dev -e dev` against it — or skip the platform entirely and pass ad-hoc values as workflow input with `-i`.
 
 ```bash
-# 1. Pull resolved values (incl. secrets) for the env into ./.env:
-solidactions env pull my-project -e production
+# Option A: set a real test value in your dev environment, then fetch it:
+solidactions env set my-project SENDGRID_API_KEY "sk-test-..." -e dev
+solidactions dev src/hello.ts -e dev
+#    ↳ ctx.vars.SENDGRID_API_KEY is populated from the dev environment
 
-# 2. Run the workflow against the in-memory mock with that env's vars:
-solidactions dev src/hello.ts -e production
-#    ↳ auto-loads ./.env, so secret values reach ctx.vars
-
-# Or load a specific env file:
-solidactions dev src/hello.ts -e production --env-file ./secrets/.env.prod
+# Option B: skip the platform — pass values directly as workflow input:
+solidactions dev src/hello.ts -i '{"apiKey": "sk-test-..."}'
 ```
 
-*Why: local dev must be reproducible without a live sandbox, but the platform will not hand out secret plaintext to a resolve call — so secrets only reach `ctx.vars` in dev through a file you deliberately `env pull`-ed. This keeps secrets out of the resolve endpoint while still letting you exercise secret-dependent code paths locally.*
+*Why: the platform will not hand out secret plaintext to a resolve call, and a local `.env` would compete with the `ctx.vars` model (an AI writing workflows would reach for `process.env` instead). So local dev either fetches non-secret vars from a real environment you've configured, or takes values explicitly as input — never from a file or the host shell.*
 
 ### Reusing values across projects — prefer `env map`, not `pull → set`
 
