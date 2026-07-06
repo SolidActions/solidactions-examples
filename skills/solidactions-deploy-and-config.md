@@ -330,7 +330,7 @@ deploy:
   gitignore: true   # also honor the project's root .gitignore (default: false)
 ```
 
-- **`.env` and any `.env.*` are ALWAYS excluded and cannot be re-included** — secrets reach the sandbox via `solidactions env set` (→ `ctx.vars` / `process.env`), never the bundle. (Only exact `.env` / `.env.*` basenames match; `.envrc` and `environment.ts` are unaffected.)
+- **`.env` and any `.env.*` are ALWAYS excluded and cannot be re-included** — secrets reach the sandbox via `solidactions env set` (→ `ctx.vars`), never the bundle. (Only exact `.env` / `.env.*` basenames match; `.envrc` and `environment.ts` are unaffected.)
 - **Always excluded by default:** `node_modules/` and `.git/` (at any depth), plus `dist/` and `vendor/` **at the project root** — the sandbox runs `npm install` and compiles TS itself, so bundling these just bloats the upload. (`dist/`/`vendor/` are root-anchored, so a vendored dep that ships its own `dist/` — e.g. a `file:` dependency — still deploys.)
 - **`deploy.exclude`** — extra gitignore-syntax patterns on top of the defaults (large front-ends, scratch dirs, fixtures).
 - **`deploy.gitignore: true`** — opt in to also apply the project's root `.gitignore`. Off by default, so a `.gitignore` that hides build output you actually need to ship doesn't silently break the deploy.
