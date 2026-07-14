@@ -2,11 +2,14 @@
   "name": "solidactions-google-calendar-sync",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
-    "@solidactions/sdk": "^0.6.0"
+    "@solidactions/sdk": "^0.7.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

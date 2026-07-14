@@ -42,5 +42,6 @@ solidactions crew env set acme SMOKE_VAR hello --env dev
 
 ## Pointers
 
+- Public Crews guide: https://www.solidactions.com/docs/crews/
 - Skill state dirs: skills declaring `storage.scope` get `$SOLIDACTIONS_STATE_DIR` (crew) / `$SOLIDACTIONS_SHARED_DIR` (workspace) injected locally too — under the skill dir's `.sa-state/` and `~/.solidactions/shared/<workspace>/`.
 - Durable skill edits and crew publishing happen over the crews MCP surface (or `skill push`); local disk and the host cache are never a source of truth.

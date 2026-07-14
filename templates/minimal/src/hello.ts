@@ -40,7 +40,7 @@ async function helloWorkflow(input: HelloInput, greetingVar: string): Promise<He
   // Use the SDK time primitive at workflow scope: it records on first execution
   // and replays the same value, so this timestamp stays deterministic.
   // Requires @solidactions/sdk >= 0.7.0 (workflow-scope now()/randomUUID()
-  // under one-shot invoke shipped in 0.7.0 — keep package.json at ^0.7.0).
+  // under one-shot invoke shipped in 0.7.0 — keep package.json at ^0.7.3 or newer).
   const processedAtMs = await SolidActions.now();
   const processedAt = new Date(processedAtMs).toISOString();
 

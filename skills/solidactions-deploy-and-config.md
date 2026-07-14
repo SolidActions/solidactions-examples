@@ -27,7 +27,7 @@ description: Use when the user mentions deploying a SolidActions project, settin
    - Do not write in-workflow auth verification — `ctx.input` never contains headers or rawBody, so any in-workflow signature check silently validates nothing. Gateway-level auth (`auth: hmac` / `auth: header`) is the only supported path. If you need a non-standard scheme, file a feature request.
    - *Why: AIs default to rolling their own HMAC in workflow code, but the platform already does this at the gateway — before any container spins up. Gateway-level auth rejects bad signatures for free; in-workflow verification pays compute for each rejection.*
 
-5. **For schedules, set the cron string in `solidactions.yaml`, not in code.** Use `solidactions schedule set` to activate a schedule after deploy. *Why: declarative schedules in YAML survive workflow code refactors; programmatic schedules drift.*
+5. **For schedules, declare cron and timezone in `solidactions.yaml`, not in code.** Deploy synchronizes and enables the declarative schedule. Use `solidactions schedule set` only for an intentional runtime override or a schedule outside the YAML flow. *Why: declarative schedules survive workflow code refactors and remain the resettable source of truth.*
 
 ## Recipe — `solidactions.yaml` Schema
 
@@ -57,7 +57,7 @@ env:
 |---|---|
 | `webhook` | HTTP-triggered. Gets a URL after deploy. Most common. |
 | `internal` | Spawned by other workflows via `SolidActions.startWorkflow()`. Internal workflows are defined with `defineWorkflow` and exported — they are not declared as entry points in `solidactions.yaml`. |
-| `schedule` | Cron-triggered. Requires a `schedule:` field with a cron expression, e.g. `schedule: "0 9 * * *"`. |
+| `schedule` | Cron-triggered. Requires a `schedule:` field with `cron` and optional `timezone`, `input`, and `enabled`. |
 
 ### Webhook config options
 
@@ -228,7 +228,7 @@ See [setup-block-tools/](../setup-block-tools/) for a runnable example.
 
 ## Recipe — New Project (YAML-first)
 
-The correct order for bootstrapping a new project. Key move: **declare variables in YAML, deploy, then set values** — not "ask the user to fill the dashboard UI before deploying." The platform accepts deploys with declared-but-empty variables; values are only required at runtime.
+The correct order for bootstrapping a new project. Key move: **declare project-local variables in YAML, deploy, then set their values** — not "ask the user to fill the dashboard UI before deploying." The platform accepts deploys with declared-but-empty local variables; values are only required at runtime. A YAML mapping to a workspace-global variable is different: create that global variable before the first deploy so the mapping can resolve.
 
 ### Flow
 
@@ -260,7 +260,15 @@ The correct order for bootstrapping a new project. Key move: **declare variables
      - LOG_LEVEL
    ```
 
-2. **First deploy creates the project and registers variable declarations.** The platform accepts this even when declared variables have no values yet:
+2. **Create any global variables named by YAML mappings before deploy.** Skip this step when every `env:` entry is a plain declaration. For a mapping such as `- REPORT_API_TOKEN: GLOBAL_REPORT_API_TOKEN`, create the target first:
+
+   ```bash
+   solidactions env set GLOBAL_REPORT_API_TOKEN "<secret-value>" -s --global
+   ```
+
+   If the global is created after deploy, either map it explicitly with `solidactions env map <project> <local-key> <global-key> -e <environment> -y` or redeploy so the YAML mapping is synchronized.
+
+3. **First deploy creates the project and registers variable declarations.** The platform accepts this even when plain declarations have no values yet:
 
    ```bash
    solidactions project deploy my-project ./ -e production
@@ -268,14 +276,14 @@ The correct order for bootstrapping a new project. Key move: **declare variables
 
    *Optional — create first, deploy later:* to make the project exist before shipping code (e.g. to set env values up front, or to provision it in CI), run `solidactions project create my-project -e production` first. It creates the project + production environment with no build; the later `project deploy` then just ships code into the existing record.
 
-3. **AI sets values it knows.** For any variable the AI has a value for (non-sensitive config, well-known defaults, its own test fixtures), set via CLI. Apply the `-s` discipline from Rule 3:
+4. **AI sets project-local values it knows.** For any variable the AI has a value for (non-sensitive config, well-known defaults, its own test fixtures), set via CLI. Apply the `-s` discipline from Rule 3:
 
    ```bash
    solidactions env set my-project LOG_LEVEL "info" -e production
    solidactions env set my-project MAX_RETRIES "5" -e production
    ```
 
-4. **AI gives the user a copy-pasteable list for unknowns.** Do NOT tell the user to "go set this in the dashboard UI." Give them the exact CLI commands:
+5. **AI gives the user a copy-pasteable list for unknowns.** Do NOT tell the user to "go set this in the dashboard UI." Give them the exact CLI commands:
 
    > I need these variables set — run these commands (or set them in the dashboard UI):
    > ```bash
@@ -285,12 +293,13 @@ The correct order for bootstrapping a new project. Key move: **declare variables
 
    Include `-s` explicitly for any name that doesn't match the CLI's auto-detect regex (see Rule 3).
 
-5. **Write workflow code** referencing `ctx.vars.X` in the `defineWorkflow` run body. This can happen in parallel with step 4 — the code just references the var names; whether the platform has values yet doesn't affect the TypeScript.
+6. **Write workflow code** referencing `ctx.vars.X` in the `defineWorkflow` run body. This can happen in parallel with step 5 — the code just references the var names; whether the platform has values yet doesn't affect the TypeScript.
 
-6. **Redeploy with real code** once the workflow is written:
+7. **Redeploy with real code, then verify resolved mappings** once the workflow is written:
 
    ```bash
    solidactions project deploy my-project ./ -e production
+   solidactions env list my-project -e production
    ```
 
 ### Three-environment model
@@ -357,7 +366,7 @@ solidactions env set my-project LOG_LEVEL "info" -e production
 solidactions env set my-project MAX_RETRIES "5" -e production
 
 # Global variable (available to all projects in workspace):
-solidactions env set SENDGRID_API_KEY "sk-live-..." -s
+solidactions env set SENDGRID_API_KEY "sk-live-..." -s --global
 
 # List variables:
 solidactions env list              # global
@@ -399,7 +408,7 @@ When two projects share a value (a common `DATABASE_URL`, a shared API key), the
 
 ```bash
 # 1. Create a global variable once (workspace-wide):
-solidactions env set SHARED_DATABASE_URL "postgres://..." -s
+solidactions env set SHARED_DATABASE_URL "postgres://..." -s --global
 
 # 2. Map each project's env key to the global:
 solidactions env map project-a DATABASE_URL SHARED_DATABASE_URL
@@ -492,7 +501,7 @@ solidactions -w 019d344f-589a-44f4-a509-fd00ae992487 run list my-project
 solidactions -w "Second Workspace" project deploy foo ./ -e production
 ```
 
-`-w` accepts a slug, UUID, or workspace name. The CLI resolves slug/name → UUID once per invocation via `/api/v1/workspaces` (no cache file). `-w` is a **top-level flag** — put it immediately after `solidactions`, before the subcommand. Per-subcommand flags (e.g. `schedule set ... -w <workflow-id>`) reuse the same letter for a different concept; top-level vs. post-subcommand position is what disambiguates them.
+`-w` accepts a slug, UUID, or workspace name. The CLI resolves slug/name → UUID once per invocation via `/api/v1/workspaces` (no cache file). `-w` is a **top-level flag** — put it immediately after `solidactions`, before the subcommand. Schedule workflow selection uses the long-form `--workflow` flag so it cannot collide with the workspace override.
 
 ### Switching tenants (different host or different API key)
 
@@ -524,7 +533,7 @@ solidactions run list my-project
 **Global swap via `login` (rarely-changing default tenant):**
 
 ```bash
-solidactions login <api-key-for-new-tenant>     # rewrites ~/.solidactions/config.json
+solidactions login --global                     # masked prompt; rewrites ~/.solidactions/config.json
 ```
 
 ### Project slugs are workspace-scoped
@@ -564,7 +573,10 @@ workflows:
     name: Daily Report
     file: src/daily-report.ts
     trigger: schedule
-    schedule: "0 9 * * *"
+    schedule:
+      cron: "0 9 * * *"
+      timezone: America/Chicago
+      enabled: true
 ```
 
 **Deploy auto-creates and enables the schedule — no separate activation step is needed.** The platform parses `solidactions.yaml` during build and syncs Schedule records with `enabled: true` by default. If variables aren't set yet when the first tick fires, the run fails fast at `getConfig()` (safe, but shows as a failed run in the dashboard — set variables before the next tick to recover).
@@ -576,22 +588,33 @@ solidactions project deploy my-project ./ -e production
 # List active schedules:
 solidactions schedule list my-project
 
-# Remove a schedule (get the ID from schedule list first):
+# Remove an app-created schedule (get the ID from schedule list first):
 solidactions schedule delete my-project <schedule-id>
 ```
 
+A YAML-backed schedule deleted at runtime is recreated by the next deploy. To remove it permanently, remove the schedule from `solidactions.yaml` and redeploy.
+
 ### When to use `solidactions schedule set`
 
-Only when you need a schedule **outside** the declarative yaml flow:
+Only when you need a schedule **outside** the declarative YAML flow or an intentional runtime override:
 - Adding a schedule for a workflow that doesn't have `trigger: schedule` in yaml.
-- Overriding a yaml-declared schedule's cron at runtime without redeploying.
+- Overriding a YAML-declared schedule's cron at runtime without redeploying. The override remains across deploys until it is reset in the app.
 - Running one-off / experimental schedules.
 
 ```bash
-solidactions schedule set my-project "0 9 * * *" -w daily-report
+solidactions schedule set my-project "0 9 * * *" --workflow daily-report --timezone America/Chicago
 ```
 
-Note: the `schedule.timezone` option is not in the YAML schema — if timezone control is needed, adjust the cron expression to UTC equivalent.
+There is one schedule per workflow. If one already exists, `schedule set` updates it; it does not add a second schedule. Current schedule commands have no environment flag, so use the app when a project family has multiple environments and the target could be ambiguous.
+
+The declarative YAML form uses an IANA timezone and defaults to UTC when it is omitted:
+
+```yaml
+schedule:
+  cron: "0 9 * * *"
+  timezone: America/Chicago
+  enabled: true
+```
 
 ## Recipe — Debugging Runs
 
@@ -653,6 +676,12 @@ Top failure modes to check first:
 
 ## Pointers
 
+- Public projects and deployment guide: https://www.solidactions.com/docs/projects/
+- Public runs guide: https://www.solidactions.com/docs/runs/
+- Public variables guide: https://www.solidactions.com/docs/variables/
+- Public triggers overview: https://www.solidactions.com/docs/triggers/
+- Public webhook guide: https://www.solidactions.com/docs/triggers/webhooks/
+- Public schedule guide: https://www.solidactions.com/docs/triggers/schedules/
 - Project setup and multi-env model: see `solidactions-getting-started` skill.
 - Full SDK reference: `.solidactions/sdk-reference.md`
 - Workflow code patterns and step/respond usage: see `solidactions-workflow-coding` skill.
