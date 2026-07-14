@@ -38,45 +38,45 @@ cp .env.example .env
 ## Deploy
 
 ```bash
-solidactions project deploy features-examples features-examples
+solidactions project deploy features-examples -e production
 ```
 
 ## Running Examples
 
 ```bash
 # Simple steps
-solidactions run start features-examples simple-steps -i '{"taskId": "test-1", "value": 42}' -w
+solidactions run start features-examples simple-steps -e production -i '{"taskId": "test-1", "value": 42}' --wait
 
 # Sleep workflow (durable sleep)
-solidactions run start features-examples sleep-workflow -i '{"taskId": "sleep-1", "sleepMs": 5000}' -w
+solidactions run start features-examples sleep-workflow -e production -i '{"taskId": "sleep-1", "sleepMs": 5000}' --wait
 
 # Invoice approval (will wait for human action)
-solidactions run start features-examples invoice-approval -i '{"requestId": "req-1", "requester": "Alice", "amount": 500, "description": "Office supplies"}' -w
+solidactions run start features-examples invoice-approval -e production -i '{"requestId": "req-1", "requester": "Alice", "amount": 500, "description": "Office supplies"}' --wait
 
 # Parent-child
-solidactions run start features-examples parent-child -i '{"value": 7, "operation": "square"}' -w
+solidactions run start features-examples parent-child -e production -i '{"value": 7, "operation": "square"}' --wait
 
 # Retry workflow (60% simulated failure rate)
-solidactions run start features-examples retry-workflow -i '{"taskId": "retry-1", "failureRate": 0.6}' -w
+solidactions run start features-examples retry-workflow -e production -i '{"taskId": "retry-1", "failureRate": 0.6}' --wait
 
 # Event workflow (progress tracking)
-solidactions run start features-examples event-workflow -i '{"items": ["item-a", "item-b", "item-c"]}' -w
+solidactions run start features-examples event-workflow -e production -i '{"items": ["item-a", "item-b", "item-c"]}' --wait
 
 # Parallel steps (items prefixed with "fail-" will error)
-solidactions run start features-examples parallel-steps -i '{"items": ["a", "b", "fail-c", "d"]}' -w
+solidactions run start features-examples parallel-steps -e production -i '{"items": ["a", "b", "fail-c", "d"]}' --wait
 
 # Messaging (receiver triggers sender automatically)
-solidactions run start features-examples message-receiver -i '{"data": "hello world"}' -w
+solidactions run start features-examples message-receiver -e production -i '{"data": "hello world"}' --wait
 
 # Multistep parent (spawns multistep-child with 4 steps)
-solidactions run start features-examples multistep-parent -i '{"value": 10}' -w
+solidactions run start features-examples multistep-parent -e production -i '{"value": 10}' --wait
 
 # OAuth workflow — calls GitHub `GET /user` via the SA proxy
 # (requires a GitHub OAuth connection mapped to project var `GITHUB` in the UI)
-solidactions run start features-examples oauth-workflow -w
+solidactions run start features-examples oauth-workflow -e production --wait
 
 # Respond test (use the webhook URL directly or via CLI)
-solidactions run start features-examples respond-test -i '{"taskId": "wh-1", "data": "test data"}' -w
+solidactions run start features-examples respond-test -e production -i '{"taskId": "wh-1", "data": "test data"}' --wait
 ```
 
 ## Notes

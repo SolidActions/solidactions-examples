@@ -35,7 +35,7 @@ Order of execution at build time: `apk` → `pip` → `run`.
 ```bash
 npm install
 solidactions project deploy setup-block-tools -e production
-solidactions run start setup-block-tools probe-tools -w
+solidactions run start setup-block-tools probe-tools -e production --wait
 ```
 
 Expected output:

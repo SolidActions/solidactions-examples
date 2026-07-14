@@ -2,11 +2,14 @@
   "name": "solidactions-setup-block-tools",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
-    "@solidactions/sdk": "^0.6.0",
+    "@solidactions/sdk": "^0.7.3",
     "execa": "^9.5.0"
   },
   "devDependencies": {

@@ -5,7 +5,7 @@ description: Use when the user mentions building, scaffolding, or starting a new
 
 ## Hard Rules
 
-- CLI auth is per-user, not per-project. Run `solidactions login <api-key>` once; check with `solidactions whoami` in future projects to confirm. *Why: authentication is global — no need to re-auth per project.* For multi-workspace users, the **active workspace** can be pinned per-folder via `solidactions workspace set <name> --local` (writes a partial `./.solidactions/config.json`) or overridden one-off via the top-level `solidactions -w <slug|uuid|name> ...` flag. See the `solidactions-deploy-and-config` skill's "CLI Config & Workspace Switching" section.
+- CLI auth is per-user, not per-project. Run `solidactions login --global` once and enter the API key in the masked prompt; check with `solidactions whoami` in future projects to confirm. *Why: authentication is global — no need to re-auth per project.* For multi-workspace users, the **active workspace** can be pinned per-folder via `solidactions workspace set <name> --local` (writes a partial `./.solidactions/config.json`) or overridden one-off via the top-level `solidactions -w <slug|uuid|name> ...` flag. See the `solidactions-deploy-and-config` skill's "CLI Config & Workspace Switching" section.
 - For new projects, run `solidactions init <name>` — it scaffolds files AND installs AI skills + SDK reference in one command. For existing projects that predate the `init` command, use `solidactions ai init` alone to install skills + SDK reference without scaffolding. *Why: `init` writes `package.json`, `tsconfig.json`, `solidactions.yaml`, `src/hello.ts`, and `.env.example` from the canonical template, plus the skills and SDK reference. Getting these from a template prevents drift from what the platform parses.*
 - Every project starts as a single environment — **production by default**. Do not create `dev` or `staging` environments unless the user explicitly asks. *Why: keep new projects simple; extra environments add deploy/config surface you only want when asked. Environments are independent — a standalone `dev` or `staging` project is perfectly valid, so this is a "don't over-create" guideline, not a technical requirement.*
 - When the user doesn't name an environment for a new project, default to `production`. *Why: production is the conventional primary environment. But there's no "production must exist first" rule — if the user asks to start in `dev` or `staging`, deploy straight there; no production root is required.*
@@ -55,7 +55,7 @@ On a fresh project, the correct order is:
 
 1. **CLI auth (one-time per user).** Skip if `solidactions whoami` already shows a valid config.
    ```bash
-   solidactions login <your-api-key>
+   solidactions login --global
    ```
 
 2. **Scaffold the project in one command:**
@@ -80,6 +80,8 @@ This writes skills + SDK reference + a slim `CLAUDE.md`/`AGENTS.md` pointer sect
 
 ## Pointers
 
+- Public project and environment guide: https://www.solidactions.com/docs/projects/
+- Public API-key guide: https://www.solidactions.com/docs/api-keys/
 - Workflow examples: https://github.com/SolidActions/solidactions-examples
 - Full SDK reference: `.solidactions/sdk-reference.md` (after `init` or `ai init`)
 - For writing workflow code, the `solidactions-workflow-coding` skill activates automatically.

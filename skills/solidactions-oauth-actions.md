@@ -284,3 +284,8 @@ Both URLs read as `${conn.proxyUrl}/<platform-slug>${path}`. The double-slug (`g
 ## Updating This Skill
 
 Skills are versioned upstream. Re-run `solidactions ai init` in any project to pull the latest version of this file from the SolidActions examples repo.
+
+Public guides:
+
+- Connections: https://www.solidactions.com/docs/connections/
+- Mapping connections into project variables: https://www.solidactions.com/docs/variables/

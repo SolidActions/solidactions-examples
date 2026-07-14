@@ -8,7 +8,7 @@ graph TD
         S1[Create project folder] --> S2[Add CLAUDE.md to project]
         S2 --> S3["Install CLI:<br/>npm install -g @solidactions/cli"]
         S3 --> S4[Get API key from SolidActions UI]
-        S4 --> S5["Authenticate:<br/>solidactions login &lt;api-key&gt;"]
+        S4 --> S5["Authenticate with masked prompt:<br/>solidactions login --global"]
     end
 
     subgraph Develop["Phase 2: Develop"]
@@ -19,13 +19,13 @@ graph TD
 
     subgraph Test["Phase 3: Test"]
         T1["Build: npm run build"] --> T2["Push env vars to SolidActions:<br/>env set / env map"]
-        T2 --> T3["Deploy to dev:<br/>solidactions project deploy my-project --env dev"]
-        T3 --> T4["Test on SolidActions:<br/>solidactions run start my-project my-workflow -w"]
+        T2 --> T3["Deploy to dev:<br/>solidactions project deploy my-project -e dev"]
+        T3 --> T4["Test on SolidActions:<br/>solidactions run start my-project my-workflow --wait"]
         T4 --> T5["Check logs:<br/>solidactions run view &lt;run-id&gt; --logs"]
     end
 
     subgraph Deploy["Phase 4: Deploy"]
-        P1[Set up production env vars] --> P2["Deploy to production:<br/>solidactions project deploy my-project"]
+        P1[Set up production env vars] --> P2["Deploy to production:<br/>solidactions project deploy my-project -e production"]
         P2 --> P3[Verify in SolidActions UI]
     end
 
@@ -42,7 +42,7 @@ graph TD
 2. **Add CLAUDE.md** — Copy from this repo or the parent directory for AI-assisted development
 3. **Install the CLI** — `npm install -g @solidactions/cli`
 4. **Get your API key** — From the SolidActions dashboard
-5. **Authenticate** — `solidactions login <api-key>` stores credentials locally
+5. **Authenticate** — `solidactions login --global` requests the API key in a masked prompt and stores credentials locally
 
 ### Phase 2: Develop
 
@@ -56,12 +56,12 @@ graph TD
 
 1. **Build** — `npm run build` to verify TypeScript compiles cleanly
 2. **Push env vars** — Use `solidactions env set` and `solidactions env map` to set up variables on the platform
-3. **Deploy to dev** — `solidactions project deploy my-project --env dev --create`
-4. **Test remotely** — `solidactions run start my-project my-workflow -i '{"key": "value"}' -w`
+3. **Deploy to dev** — `solidactions project deploy my-project -e dev --create`
+4. **Test remotely** — `solidactions run start my-project my-workflow -i '{"key": "value"}' --wait`
 5. **Check logs** — `solidactions run list my-project` then `solidactions run view <run-id> --logs`
 
 ### Phase 4: Deploy
 
 1. **Production env vars** — Ensure all required variables are set for production
-2. **Deploy** — `solidactions project deploy my-project` (defaults to production)
+2. **Deploy** — `solidactions project deploy my-project -e production`
 3. **Verify** — Check the SolidActions UI for successful deployment and workflow status
