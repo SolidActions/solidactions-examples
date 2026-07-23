@@ -3,7 +3,7 @@ SolidActions workflow project. AI skills are installed in `.claude/skills/` and 
 - `solidactions-getting-started` — new-project scaffolding and bootstrap discipline
 - `solidactions-workflow-coding` — editing TS workflow code (SDK rules, determinism, recipes)
 - `solidactions-deploy-and-config` — deploying, variables, triggers, debugging runs
-- `solidactions-oauth-actions` — calling OAuth-backed provider APIs via the SA proxy
+- `solidactions-oauth-action` — calling OAuth-backed provider APIs via the SA proxy
 - `solidactions-crew-skills` — running/editing crew skill scripts via the CLI (`skill exec --target`, `skill dev`)
 
 Full SDK reference: `.solidactions/sdk-reference.md`. Read before using any SDK function you do not know cold.

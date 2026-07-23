@@ -10,7 +10,7 @@ import type { GoogleCalendarEvent } from "./types.js";
 export type CalendarEventBody = Record<string, unknown>;
 
 /** Catalog action IDs for the Google Calendar endpoints we call.
- * Refresh with `solidactions oauth-actions search google-calendar <query>`. */
+ * Refresh with `solidactions oauth-action search google-calendar <query>`. */
 const ACTION = {
   listEvents: "conn_mod_def::GJ6RlnIYK20::YzuWSmaVQgurletRDNJavA",
   getEvent: "conn_mod_def::GJ6RlPEQKQw::rxHzaO_TTtKVIcxgFrWUKA",

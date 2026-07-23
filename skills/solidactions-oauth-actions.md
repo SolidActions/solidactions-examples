@@ -1,15 +1,15 @@
 ---
-name: solidactions-oauth-actions
-description: Use when the user wants to call a third-party API (Gmail, Google Calendar, Slack, GitHub, Notion, Asana, Box, etc.) from a SolidActions workflow, OR when they reference an `oauth:` mapping in `solidactions.yaml`. Encodes the SA-proxy URL pattern, the `oauth-actions search`/`show` discovery flow, and the rule that workflow code uses `fetch` against the proxy — never a third-party SDK.
+name: solidactions-oauth-action
+description: Use when the user wants to call a third-party API (Gmail, Google Calendar, Slack, GitHub, Notion, Asana, Box, etc.) from a SolidActions workflow, OR when they reference an `oauth:` mapping in `solidactions.yaml`. Encodes the SA-proxy URL pattern, the `oauth-action search`/`view` discovery flow, and the rule that workflow code uses `fetch` against the proxy — never a third-party SDK.
 ---
 
 ## Hard Rules
 
 - **Never use a provider SDK** (`googleapis`, `@slack/web-api`, `@octokit/rest`, `stripe`, etc.) inside a SolidActions workflow that talks to a connected service. *Why: those SDKs expect a raw OAuth access token, but SolidActions injects a connection key for the SolidActions proxy, not a provider token. The token lives behind the proxy and is attached server-side.*
-- **Always discover the right endpoint via `solidactions oauth-actions show <platform> <action_id> --json` before writing the call.** Do not infer a request body from prose, an inputSchema's `properties`/`required`, or memory of the upstream API. *Why: the catalog returns `io_schema.ioExample.input.body` — a real, working example body. Substituting values into that shape is reliable; reconstructing it from JSON Schema is not.*
+- **Always discover the right endpoint via `solidactions oauth-action view <platform> <action_id> --json` before writing the call.** Do not infer a request body from prose, an inputSchema's `properties`/`required`, or memory of the upstream API. *Why: the catalog returns `io_schema.ioExample.input.body` — a real, working example body. Substituting values into that shape is reliable; reconstructing it from JSON Schema is not.*
 - **Substitute path placeholders before calling.** The action `path` field uses `{{name}}` (double-brace) — leave the surrounding path intact and replace each placeholder with your value. *Why: the proxy forwards your path verbatim to the upstream provider. Whatever you send is what arrives. Unsubstituted `{{name}}` will appear literally in the upstream URL and fail.*
 - **Map every connection in `solidactions.yaml` under `env:`** before referencing `ctx.vars.<NAME>` in the `run` body. *Why: an unmapped var is `undefined` at runtime — the proxy rejects requests with a missing `X-OAuth-Connection-Key` header (HTTP 400), so this surfaces as a proxy 400 instead of from the upstream and is hard to debug.*
-- **Send `X-OAuth-Action-Id` on every proxy call.** The header value is the `action_id` you got from `oauth-actions show`. *Why: this is the SOLE routing identifier the proxy uses — without it the request is rejected with HTTP 400.*
+- **Send `X-OAuth-Action-Id` on every proxy call.** The header value is the `action_id` you got from `oauth-action view`. *Why: this is the SOLE routing identifier the proxy uses — without it the request is rejected with HTTP 400.*
 - **For modifier actions whose `inputSchema.body.required` includes `connectionKey`, put `conn.key` into the body yourself** (where `conn` is the `ConnectionVar` from `ctx.vars.<NAME>`). *Why: the proxy does not auto-inject this field. The catalog's `io_schema.inputSchema` lists every required body field — that schema is the complete contract. What you see is what you send.*
 
 ## Mental Model
@@ -50,7 +50,7 @@ with **three** headers (added on top of whatever the upstream API requires):
 
 - `Authorization: Bearer ${conn.proxyToken}` — proves the request comes from a live workflow run
 - `X-OAuth-Connection-Key: ${conn.key}` — identifies which provider connection to use
-- `X-OAuth-Action-Id: <action_id from oauth-actions show>` — identifies the exact action being invoked
+- `X-OAuth-Action-Id: <action_id from oauth-action view>` — identifies the exact action being invoked
 
 The proxy is a thin forwarder. It validates the run token, verifies the connection key belongs to your tenant, attaches its own broker credentials, and forwards your request. It does not parse, rewrite, or supplement the path, body, or headers you sent.
 
@@ -66,7 +66,7 @@ The catalog documents the **upstream** contract — what the upstream provider e
 |---|---|---|
 | `Authorization: Bearer <conn.proxyToken>` | You | Run token from `ConnectionVar`, identifies live workflow |
 | `X-OAuth-Connection-Key: <conn.key>` | You | Connection key from `ConnectionVar` |
-| `X-OAuth-Action-Id: <action_id>` | You | Value is the `action_id` from `oauth-actions show` |
+| `X-OAuth-Action-Id: <action_id>` | You | Value is the `action_id` from `oauth-action view` |
 | Real OAuth access token / refresh | Proxy | Attached upstream as the provider's `Authorization`, `x-api-key`, etc. |
 | Broker-internal auth headers (anything `x-pica-*`, `x-one-*`) | Proxy | Server-side, never visible to your code |
 | `connectionKey` body field (for modifier actions that require it) | **You** — put `conn.key` into the body | The proxy does not auto-inject this |
@@ -79,38 +79,38 @@ What this means in practice:
 
 ## Discovery Flow
 
-Three commands. Run each in this order; the AI reads the JSON output of `show` directly.
+Three commands. Run each in this order; the AI reads the JSON output of `view` directly.
 
 ```bash
 # 1. Find candidates by intent. Returns method/path/title/action_id for each match.
-solidactions oauth-actions search gmail "send message" --limit 10
+solidactions oauth-action search gmail "send message" --limit 10
 
 # 2. List by platform if you don't know the search term.
-solidactions oauth-actions list gmail --limit 50
+solidactions oauth-action list gmail --limit 50
 
 # 3. Get full schema + paste-ready snippet for one action.
-solidactions oauth-actions show gmail conn_mod_def::GJ3odhCpd3I::gujvYoneSk6NFWltse9bGg --json
+solidactions oauth-action view gmail conn_mod_def::GJ3odhCpd3I::gujvYoneSk6NFWltse9bGg --json
 ```
 
-For very chatty actions, the `--json` output of `show` can be 30+ KB — too large to read whole, and may be truncated by some shell environments. Pipe through `jq` to pull just the field you need:
+For very chatty actions, the `--json` output of `view` can be 30+ KB — too large to read whole, and may be truncated by some shell environments. Pipe through `jq` to pull just the field you need:
 
 ```bash
 # Just the example body shape (the highest-value field for writing the call):
-solidactions oauth-actions show gmail <action_id> --json | jq '.io_schema.ioExample.input.body'
+solidactions oauth-action view gmail <action_id> --json | jq '.io_schema.ioExample.input.body'
 
 # Just the description, to confirm the action does what you think:
-solidactions oauth-actions show gmail <action_id> --json | jq -r '.io_schema.inputSchema.description'
+solidactions oauth-action view gmail <action_id> --json | jq -r '.io_schema.inputSchema.description'
 
 # Path placeholders + their example values:
-solidactions oauth-actions show gmail <action_id> --json | jq '.io_schema.ioExample.input.path'
+solidactions oauth-action view gmail <action_id> --json | jq '.io_schema.ioExample.input.path'
 
 # Required body fields (per inputSchema), to validate before calling:
-solidactions oauth-actions show gmail <action_id> --json | jq '.io_schema.inputSchema.properties.body.required'
+solidactions oauth-action view gmail <action_id> --json | jq '.io_schema.inputSchema.properties.body.required'
 ```
 
-The human-mode (no `--json`) output of `show` already pretty-prints these sections plus a paste-ready `fetch` snippet — that's usually the fastest read for "just write the workflow."
+The human-mode (no `--json`) output of `view` already pretty-prints these sections plus a paste-ready `fetch` snippet — that's usually the fastest read for "just write the workflow."
 
-The `--json` output of `show` contains:
+The `--json` output of `view` contains:
 
 - `path` — upstream path with `{{placeholders}}`
 - `method` — HTTP method
@@ -122,7 +122,7 @@ The `--json` output of `show` contains:
 - `io_schema.ioExample.input.body` — **the request body shape, with example values inlined.** Substitute your data into this; do not rebuild from `inputSchema`
 - `io_schema.ioExample.output` — example response
 
-The human-mode output of `show` (without `--json`) prints all of the above plus a paste-ready `fetch` call. Either form works.
+The human-mode output of `view` (without `--json`) prints all of the above plus a paste-ready `fetch` call. Either form works.
 
 ## Writing the Workflow
 
@@ -224,7 +224,7 @@ For repeated query keys (arrays in `ioExample.input.query`, e.g. `eventTypes: ["
 
 ### 3. Iterate
 
-If the call returns 4xx, the response body is the upstream provider's native error structure (Google's `{error: {code, message, errors[]}}`, the broker's `{message, error, statusCode}`, etc.) — read it directly. The proxy does not wrap or transform errors. Re-run `oauth-actions show <platform> <action_id> --json` and check `io_schema.inputSchema` (under `path`/`query`/`body`) for required fields you missed or constrained values (`const`, `enum`) you violated.
+If the call returns 4xx, the response body is the upstream provider's native error structure (Google's `{error: {code, message, errors[]}}`, the broker's `{message, error, statusCode}`, etc.) — read it directly. The proxy does not wrap or transform errors. Re-run `oauth-action view <platform> <action_id> --json` and check `io_schema.inputSchema` (under `path`/`query`/`body`) for required fields you missed or constrained values (`const`, `enum`) you violated.
 
 ## Custom Modifier Actions vs Raw Upstream Actions
 

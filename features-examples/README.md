@@ -81,7 +81,7 @@ solidactions run start features-examples respond-test -i '{"taskId": "wh-1", "da
 
 ## Notes
 
-- **OAuth**: Uses the OAuth-actions proxy — workflow code never sees the access token. Create a GitHub OAuth connection in the SA UI, map it to project var `GITHUB`, and the workflow reads `ctx.vars.GITHUB as ConnectionVar` then calls `${conn.proxyUrl}/github/user` with `conn.proxyToken` and `conn.key`. See `src/oauth-workflow.ts` for setup details, and run `solidactions oauth-actions search github <query>` to discover other endpoints.
+- **OAuth**: Uses the OAuth-actions proxy — workflow code never sees the access token. Create a GitHub OAuth connection in the SA UI, map it to project var `GITHUB`, and the workflow reads `ctx.vars.GITHUB as ConnectionVar` then calls `${conn.proxyUrl}/github/user` with `conn.proxyToken` and `conn.key`. See `src/oauth-workflow.ts` for setup details, and run `solidactions oauth-action search github <query>` to discover other endpoints.
 - **Messaging**: The receiver triggers the sender automatically — you only need to run the receiver.
 - **Scheduled Workflow**: Requires deployment to run on its cron schedule. The schedule is configured in `solidactions.yaml`.
 - **Respond Test**: Configured with `response: wait` and `auth: none` in `solidactions.yaml` for easy testing.
