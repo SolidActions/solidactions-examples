@@ -22,7 +22,7 @@ const HEADERS = [
 ];
 
 /** Catalog action IDs for the Google Sheets endpoints we call.
- * Refresh with `solidactions oauth-actions search google-sheets <query>`. */
+ * Refresh with `solidactions oauth-action search google-sheets <query>`. */
 const ACTION = {
   getSpreadsheet: "conn_mod_def::GJ30jpJCuBA::-7kldtebSUeO7_FYtT48JQ",
   getValues: "conn_mod_def::GJ30lYkSqLk::IOnDiKqfQ_2FtFCahohidA",

@@ -18,9 +18,9 @@
  * 2. In the project's Environment tab, add a project variable named `GITHUB`,
  *    select "OAuth Connection" as the source, and pick the connection created
  *    in step 1. At runtime `ctx.vars.GITHUB` is a `ConnectionVar` object.
- * 3. Discover endpoints with `solidactions oauth-actions search github <query>`
- *    and `solidactions oauth-actions show github <action_id>` for paste-ready
- *    request snippets. The `action_id` from `show` goes in `X-OAuth-Action-Id`.
+ * 3. Discover endpoints with `solidactions oauth-action search github <query>`
+ *    and `solidactions oauth-action view github <action_id>` for paste-ready
+ *    request snippets. The `action_id` from `view` goes in `X-OAuth-Action-Id`.
  *
  * Never import a provider SDK (`@octokit/rest`, `googleapis`, etc.) — those
  * expect a raw access token, which workflow code never sees.
@@ -53,7 +53,7 @@ interface GitHubUser {
 }
 
 /** Action ID for GitHub `Get the Authenticated User`.
- * Refresh with `solidactions oauth-actions search github "get authenticated user"`. */
+ * Refresh with `solidactions oauth-action search github "get authenticated user"`. */
 const GITHUB_GET_USER_ACTION_ID = 'conn_mod_def::GJ3abVwgSnA::upr7Ot0XTcSv1ZI7n9NIWQ';
 
 /** Call GitHub `GET /user` through the SolidActions proxy. */
