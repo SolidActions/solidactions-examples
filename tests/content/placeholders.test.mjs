@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { render, collectPlaceholders } from '../../scripts/lib/placeholders.mjs';
+import { render, collectPlaceholders, renderWithLineMap } from '../../scripts/lib/placeholders.mjs';
 
 const SOURCE = 'test.md';
 
@@ -141,4 +141,61 @@ test('collectPlaceholders reports nothing for a body with no placeholders', () =
   const result = collectPlaceholders('Plain text, no placeholders here.');
   assert.deepEqual(result.placeholders, new Set());
   assert.deepEqual(result.conditions, new Set());
+});
+
+// --- renderWithLineMap --------------------------------------------------
+//
+// Built for scripts/check-content.mjs (#1027 review fix): a caller that finds
+// something at a given line of the RENDERED text (e.g. a command-validator
+// finding) needs to translate that back to the real source line in `body`.
+
+test('renderWithLineMap: with no conditional, every output line maps 1:1 to the same source line', () => {
+  const body = ['line one', 'line two {{app_url}}', 'line three'].join('\n');
+  const { text, lineMap } = renderWithLineMap(body, { app_url: 'https://example.com' }, { contract, source: SOURCE });
+  assert.equal(text, 'line one\nline two https://example.com\nline three');
+  assert.deepEqual(lineMap, [1, 2, 3]);
+});
+
+test('renderWithLineMap: a dropped arm shorter than the selected one still maps trailing lines to their true source line', () => {
+  // Mirrors content/guide/setup.md's real shape: a 3-line if-arm, a 1-line
+  // else-arm, and more content after {{/if}} — a flat "front matter length"
+  // offset alone gets this wrong for one of the two branches; only true
+  // remapping gets both right.
+  const body = [
+    'Before.', // source line 1
+    '{{#if self_hosted}}', // source line 2
+    'if line A', // 3
+    'if line B', // 4
+    'if line C', // 5
+    '{{else}}', // 6
+    'else line A', // 7
+    '{{/if}}', // 8
+    'After.', // 9
+  ].join('\n');
+
+  // Each arm's text token includes the newlines immediately surrounding the
+  // {{#if}}/{{else}}/{{/if}} markers (same rule already locked in by
+  // "renders the if-arm ... preserving the arm text byte-for-byte, including
+  // its own surrounding newlines" above), so a swapped-in arm leaves a blank
+  // line on each side of it — that's pre-existing render() behavior, not
+  // something this test is asserting for the first time.
+  const cloud = renderWithLineMap(body, { self_hosted: false }, { contract, source: SOURCE });
+  assert.equal(cloud.text, 'Before.\n\nelse line A\n\nAfter.');
+  // The last output line ("After.") must map back to source line 9, not
+  // source line 4 (where a naive flat "output line + constant" offset would
+  // land).
+  assert.deepEqual(cloud.lineMap, [1, 2, 7, 8, 9]);
+
+  const selfHosted = renderWithLineMap(body, { self_hosted: true }, { contract, source: SOURCE });
+  assert.equal(selfHosted.text, 'Before.\n\nif line A\nif line B\nif line C\n\nAfter.');
+  // Different output shape than the cloud branch, but the last line still
+  // resolves to the same true source line, 9.
+  assert.deepEqual(selfHosted.lineMap, [1, 2, 3, 4, 5, 6, 9]);
+});
+
+test('renderWithLineMap: a single-line inline conditional does not shift line numbers', () => {
+  const body = 'run{{#if self_hosted}} --host {{app_url}}{{/if}}\nnext line';
+  const cloud = renderWithLineMap(body, { self_hosted: false, app_url: 'https://example.com' }, { contract, source: SOURCE });
+  assert.equal(cloud.text, 'run\nnext line');
+  assert.deepEqual(cloud.lineMap, [1, 2]);
 });

@@ -1,0 +1,4101 @@
+{
+  "schema_version": 1,
+  "cli_name": "solidactions",
+  "cli_version": "3.3.0",
+  "global_options": [
+    {
+      "flags": "-V, --version",
+      "long": "--version",
+      "short": "-V",
+      "description": "output the version number",
+      "required": false,
+      "value_required": false,
+      "value_optional": false,
+      "variadic": false,
+      "negated": false,
+      "hidden": false
+    },
+    {
+      "flags": "-w, --workspace-override <id-or-slug-or-name>",
+      "long": "--workspace-override",
+      "short": "-w",
+      "description": "Override active workspace for this command (short form: -w)",
+      "required": false,
+      "value_required": true,
+      "value_optional": false,
+      "variadic": false,
+      "negated": false,
+      "hidden": false
+    },
+    {
+      "flags": "-h, --help",
+      "long": "--help",
+      "short": "-h",
+      "description": "display help for command",
+      "required": false,
+      "value_required": false,
+      "value_optional": false,
+      "variadic": false,
+      "negated": false,
+      "hidden": false
+    }
+  ],
+  "commands": [
+    {
+      "path": [
+        "login"
+      ],
+      "name": "login",
+      "aliases": [],
+      "description": "Authenticate the CLI (prompts securely for your API key, or via --device for browser-based login)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "api-key",
+          "required": false,
+          "variadic": false,
+          "description": "Legacy positional API key (prefer the masked prompt, --stdin, or --device)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--stdin",
+          "long": "--stdin",
+          "short": null,
+          "description": "Read the API key from stdin (for non-interactive automation)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--device",
+          "long": "--device",
+          "short": null,
+          "description": "Authenticate via browser using OAuth device authorization",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--dev",
+          "long": "--dev",
+          "short": null,
+          "description": "Use local development server (http://localhost:8000)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": true
+        },
+        {
+          "flags": "--host <url>",
+          "long": "--host",
+          "short": null,
+          "description": "Custom API host URL",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": true
+        },
+        {
+          "flags": "--workspace <name-or-id>",
+          "long": "--workspace",
+          "short": null,
+          "description": "Set workspace by name, slug, or ID. A sole workspace is auto-selected; use --workspace to choose among multiple workspaces.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--local",
+          "long": "--local",
+          "short": null,
+          "description": "Save config to ./.solidactions/config.json in the current folder",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--global",
+          "long": "--global",
+          "short": null,
+          "description": "Save config to ~/.solidactions/config.json (default if prompted)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--gitignore",
+          "long": "--gitignore",
+          "short": null,
+          "description": "With --local, add .solidactions/ to .gitignore without prompting",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "init"
+      ],
+      "name": "init",
+      "aliases": [],
+      "description": "Scaffold a new SolidActions project (files + AI skills)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "directory",
+          "required": false,
+          "variadic": false,
+          "description": "Directory to create (omit to scaffold in the current empty directory)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--no-skills",
+          "long": "--no-skills",
+          "short": null,
+          "description": "Skip AI skills/SDK reference install (scaffold files only)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "--claude",
+          "long": "--claude",
+          "short": null,
+          "description": "Use CLAUDE.md for the AI helper file",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--agents",
+          "long": "--agents",
+          "short": null,
+          "description": "Use AGENTS.md for the AI helper file (Codex, Cursor, Gemini, Windsurf)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "logout"
+      ],
+      "name": "logout",
+      "aliases": [],
+      "description": "Remove saved credentials",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "--local",
+          "long": "--local",
+          "short": null,
+          "description": "Remove only the nearest local ./.solidactions/config.json",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--global",
+          "long": "--global",
+          "short": null,
+          "description": "Remove only ~/.solidactions/config.json",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "whoami"
+      ],
+      "name": "whoami",
+      "aliases": [],
+      "description": "Show current configuration",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "dev"
+      ],
+      "name": "dev",
+      "aliases": [],
+      "description": "Run a workflow locally using an in-memory mock server (no deploy needed)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "file",
+          "required": true,
+          "variadic": false,
+          "description": "Workflow file to run (e.g., src/simple-steps.ts)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-i, --input <json>",
+          "long": "--input",
+          "short": "-i",
+          "description": "JSON input for the workflow",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "{}"
+        },
+        {
+          "flags": "-e, --env <env>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Pull platform variables for this environment (e.g. production, staging, dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project"
+      ],
+      "name": "project",
+      "aliases": [],
+      "description": "Manage projects",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "view"
+      ],
+      "name": "view",
+      "aliases": [],
+      "description": "View project status and the client-reported deployed revision",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Exact project slug (or project family/name when --env is explicit)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "create"
+      ],
+      "name": "create",
+      "aliases": [],
+      "description": "Create an empty project (and environment) without deploying source",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Target environment (production/staging/dev). Defaults to production.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "deploy"
+      ],
+      "name": "deploy",
+      "aliases": [],
+      "description": "Deploy a project to SolidActions",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project-name",
+          "required": true,
+          "variadic": false,
+          "description": "Project name (will be created if it doesn't exist)"
+        },
+        {
+          "name": "path",
+          "required": false,
+          "variadic": false,
+          "description": "Source directory to deploy (defaults to current directory)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Target environment (production/staging/dev). Required on first deploy of a new project.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--create",
+          "long": "--create",
+          "short": null,
+          "description": "Create environment project if it doesn't exist",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--config-only",
+          "long": "--config-only",
+          "short": null,
+          "description": "Sync YAML env declarations without building/deploying",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--no-cache",
+          "long": "--no-cache",
+          "short": null,
+          "description": "Force a fresh build, bypassing all build caches",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "--force-rebuild",
+          "long": "--force-rebuild",
+          "short": null,
+          "description": "Force a fresh build, bypassing all build caches (alias for --no-cache)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--no-git-metadata",
+          "long": "--no-git-metadata",
+          "short": null,
+          "description": "Do not transmit Git provenance (branch, commit subject, and sanitized remote repository URL; credentials are stripped); also available as SOLIDACTIONS_NO_GIT_METADATA=1",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "pull"
+      ],
+      "name": "pull",
+      "aliases": [],
+      "description": "Pull project source from SolidActions",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project-name",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "path",
+          "required": false,
+          "variadic": false,
+          "description": "Destination directory (defaults to current directory)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip overwrite confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "logs"
+      ],
+      "name": "logs",
+      "aliases": [],
+      "description": "View build/deployment logs for a project",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name (or family name with -e)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment to resolve (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--environment <environment>",
+          "long": "--environment",
+          "short": null,
+          "description": "Alias of --env",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": true
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List all projects",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "run"
+      ],
+      "name": "run",
+      "aliases": [],
+      "description": "Manage workflow runs",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "start"
+      ],
+      "name": "start",
+      "aliases": [],
+      "description": "Trigger a workflow run",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "workflow",
+          "required": true,
+          "variadic": false,
+          "description": "Workflow name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-i, --input <json>",
+          "long": "--input",
+          "short": "-i",
+          "description": "JSON input for the workflow",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--wait",
+          "long": "--wait",
+          "short": null,
+          "description": "Wait for the workflow to complete",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List recent workflow runs",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": false,
+          "variadic": false,
+          "description": "Filter by project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-l, --limit <number>",
+          "long": "--limit",
+          "short": "-l",
+          "description": "Number of runs to show",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--offset <number>",
+          "long": "--offset",
+          "short": null,
+          "description": "Skip first N runs (pagination)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--status <status>",
+          "long": "--status",
+          "short": null,
+          "description": "Filter by status (completed, failed, queued, running)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--since <duration>",
+          "long": "--since",
+          "short": null,
+          "description": "Filter to runs since (e.g., 1h, 30m, 2d, 1w)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--workflow <name>",
+          "long": "--workflow",
+          "short": null,
+          "description": "Filter by workflow name",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--detailed",
+          "long": "--detailed",
+          "short": null,
+          "description": "Include timeline, steps, and logs per run (default limit: 5)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--has-errors",
+          "long": "--has-errors",
+          "short": null,
+          "description": "Show only runs with errors (step errors, retries, or degraded results)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment to filter by (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--environment <environment>",
+          "long": "--environment",
+          "short": null,
+          "description": "Alias of --env",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": true
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "view"
+      ],
+      "name": "view",
+      "aliases": [],
+      "description": "View details, timeline, steps, or logs for a workflow run",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "run-id",
+          "required": true,
+          "variadic": false,
+          "description": "Run ID"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--timeline",
+          "long": "--timeline",
+          "short": null,
+          "description": "Show only timeline data",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--steps",
+          "long": "--steps",
+          "short": null,
+          "description": "Show only step data",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--logs",
+          "long": "--logs",
+          "short": null,
+          "description": "Show raw logs",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "env"
+      ],
+      "name": "env",
+      "aliases": [],
+      "description": "Manage variables",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "set"
+      ],
+      "name": "set",
+      "aliases": [],
+      "description": "Set a variable (create or update, global or project)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "key-or-project",
+          "required": true,
+          "variadic": false,
+          "description": "Variable key (global) or project name"
+        },
+        {
+          "name": "value-or-key",
+          "required": true,
+          "variadic": false,
+          "description": "Variable value (global) or variable key (project)"
+        },
+        {
+          "name": "value",
+          "required": false,
+          "variadic": false,
+          "description": "Variable value (when first arg is project)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-s, --secret",
+          "long": "--secret",
+          "short": "-s",
+          "description": "Mark as encrypted secret",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Target environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "--oauth-connection <name>",
+          "long": "--oauth-connection",
+          "short": null,
+          "description": "Bind the project key to an OAuth connection",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--global",
+          "long": "--global",
+          "short": null,
+          "description": "Set a global variable (no project) — required for the 2-arg form",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--staging-value <value>",
+          "long": "--staging-value",
+          "short": null,
+          "description": "Staging environment value (global only)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--dev-value <value>",
+          "long": "--dev-value",
+          "short": null,
+          "description": "Dev environment value (global only)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--staging-inherit",
+          "long": "--staging-inherit",
+          "short": null,
+          "description": "Staging inherits from production (global only)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--dev-inherit",
+          "long": "--dev-inherit",
+          "short": null,
+          "description": "Dev inherits from production (global only)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--dev-inherit-staging",
+          "long": "--dev-inherit-staging",
+          "short": null,
+          "description": "Dev inherits from staging (global only)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip overwrite confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List variables",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": false,
+          "variadic": false,
+          "description": "Project name (omit for global variables)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Filter by environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "delete"
+      ],
+      "name": "delete",
+      "aliases": [],
+      "description": "Delete a variable",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "key-or-project",
+          "required": true,
+          "variadic": false,
+          "description": "Variable key (global) or project name"
+        },
+        {
+          "name": "key",
+          "required": false,
+          "variadic": false,
+          "description": "Variable key (if first arg is project)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment to delete from",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation prompt",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "reset"
+      ],
+      "name": "reset",
+      "aliases": [],
+      "description": "Reset a project variable mapping to its YAML-declared source",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "KEY",
+          "required": true,
+          "variadic": false,
+          "description": "Variable key"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment to reset in",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "map"
+      ],
+      "name": "map",
+      "aliases": [],
+      "description": "Map a global variable to a project-specific key",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "key",
+          "required": true,
+          "variadic": false,
+          "description": "Project-specific variable name"
+        },
+        {
+          "name": "global-key",
+          "required": true,
+          "variadic": false,
+          "description": "Global variable name to map from"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip overwrite confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "pull"
+      ],
+      "name": "pull",
+      "aliases": [],
+      "description": "Pull resolved variables to a local file",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-o, --output <file>",
+          "long": "--output",
+          "short": "-o",
+          "description": "Output file path (defaults to .env or .env.{environment})",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation for secrets",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--update-oauth",
+          "long": "--update-oauth",
+          "short": null,
+          "description": "Only pull OAuth tokens and merge into existing .env file",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "push"
+      ],
+      "name": "push",
+      "aliases": [],
+      "description": "Push variables from .env file to a project",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "path",
+          "required": false,
+          "variadic": false,
+          "description": "Source directory with solidactions.yaml and .env file",
+          "default": "."
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Target environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "--new-only",
+          "long": "--new-only",
+          "short": null,
+          "description": "Only push new or empty variables (skip existing)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--include-undeclared",
+          "long": "--include-undeclared",
+          "short": null,
+          "description": "Also push vars not declared in solidactions.yaml",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation prompt",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "env",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "crew"
+      ],
+      "name": "crew",
+      "aliases": [],
+      "description": "Manage crews",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env"
+      ],
+      "name": "env",
+      "aliases": [],
+      "description": "Manage crew variables",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env",
+        "set"
+      ],
+      "name": "set",
+      "aliases": [],
+      "description": "Set a crew variable (create or update)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "crew",
+          "required": true,
+          "variadic": false,
+          "description": "Crew name or id"
+        },
+        {
+          "name": "key",
+          "required": true,
+          "variadic": false,
+          "description": "Variable key"
+        },
+        {
+          "name": "value",
+          "required": true,
+          "variadic": false,
+          "description": "Variable value"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Target environment (production/staging/dev/all)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "all"
+        },
+        {
+          "flags": "--no-secret",
+          "long": "--no-secret",
+          "short": null,
+          "description": "Do not mark as secret — crew variables are secret by default (unlike `env set`)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List crew variables",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "crew",
+          "required": true,
+          "variadic": false,
+          "description": "Crew name or id"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env",
+        "delete"
+      ],
+      "name": "delete",
+      "aliases": [],
+      "description": "Delete a crew variable",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "crew",
+          "required": true,
+          "variadic": false,
+          "description": "Crew name or id"
+        },
+        {
+          "name": "key",
+          "required": true,
+          "variadic": false,
+          "description": "Variable key"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation prompt",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env",
+        "push"
+      ],
+      "name": "push",
+      "aliases": [],
+      "description": "Push variables from a .env file to a crew",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "crew",
+          "required": true,
+          "variadic": false,
+          "description": "Crew name or id"
+        },
+        {
+          "name": "file",
+          "required": false,
+          "variadic": false,
+          "description": "Source .env file",
+          "default": ".env"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Target environment (production/staging/dev/all)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "all"
+        },
+        {
+          "flags": "--no-secret",
+          "long": "--no-secret",
+          "short": null,
+          "description": "Do not mark pushed variables as secret — secret by default (unlike `env push`)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation prompt",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "crew",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "schedule"
+      ],
+      "name": "schedule",
+      "aliases": [],
+      "description": "Manage cron schedules",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "set"
+      ],
+      "name": "set",
+      "aliases": [],
+      "description": "Set a cron schedule for a workflow",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "cron",
+          "required": true,
+          "variadic": false,
+          "description": "Cron expression (e.g., \"0 9 * * *\" for daily at 9am)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--workflow <name>",
+          "long": "--workflow",
+          "short": null,
+          "description": "Workflow name (if project has multiple)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-i, --input <json>",
+          "long": "--input",
+          "short": "-i",
+          "description": "JSON input to pass to scheduled runs",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-z, --timezone <iana>",
+          "long": "--timezone",
+          "short": "-z",
+          "description": "IANA timezone the cron is evaluated in (e.g. America/Chicago); defaults to UTC",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation if schedule already exists",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List schedules for a project",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "delete"
+      ],
+      "name": "delete",
+      "aliases": [],
+      "description": "Delete a schedule",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "schedule-id",
+          "required": true,
+          "variadic": false,
+          "description": "Schedule ID"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation prompt",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "webhook"
+      ],
+      "name": "webhook",
+      "aliases": [],
+      "description": "Manage webhooks",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "webhook",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List webhook URLs for a project",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--show-secrets",
+          "long": "--show-secrets",
+          "short": null,
+          "description": "Show webhook secrets",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--format <format>",
+          "long": "--format",
+          "short": null,
+          "description": "Output format: table or json",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "table"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "webhook",
+        "secret"
+      ],
+      "name": "secret",
+      "aliases": [],
+      "description": "Print the webhook secret for a project (set this value in your sender)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--workflow <name>",
+          "long": "--workflow",
+          "short": null,
+          "description": "Filter to a specific workflow by name",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--format <format>",
+          "long": "--format",
+          "short": null,
+          "description": "Output format: text or json",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "text"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "webhook",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "workspace"
+      ],
+      "name": "workspace",
+      "aliases": [],
+      "description": "Manage workspaces",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workspace",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List your workspaces across all organizations",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workspace",
+        "set"
+      ],
+      "name": "set",
+      "aliases": [],
+      "description": "Set the active workspace and pin it",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "id-or-slug-or-name",
+          "required": true,
+          "variadic": false,
+          "description": "Workspace ID, slug, or name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--local",
+          "long": "--local",
+          "short": null,
+          "description": "pin to ./.solidactions/config.json (this folder only)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--global",
+          "long": "--global",
+          "short": null,
+          "description": "pin to ~/.solidactions/config.json (machine-wide)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--gitignore",
+          "long": "--gitignore",
+          "short": null,
+          "description": "auto-add .solidactions/ to local .gitignore (skip prompt)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workspace",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "oauth-action"
+      ],
+      "name": "oauth-action",
+      "aliases": [],
+      "description": "Discover OAuth-backed API operations callable via the SA proxy",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "oauth-action",
+        "search"
+      ],
+      "name": "search",
+      "aliases": [],
+      "description": "Search available actions for a connected platform",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "platform",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        },
+        {
+          "name": "query",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--method <method>",
+          "long": "--method",
+          "short": null,
+          "description": "Filter by HTTP method (GET, POST, etc.)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--limit <n>",
+          "long": "--limit",
+          "short": null,
+          "description": "Maximum results to return",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Emit raw JSON for AI/script consumption",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "oauth-action",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List actions for a connected platform",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "platform",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--limit <n>",
+          "long": "--limit",
+          "short": null,
+          "description": "Maximum results to return",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Emit raw JSON for AI/script consumption",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "oauth-action",
+        "view"
+      ],
+      "name": "view",
+      "aliases": [],
+      "description": "Show full schema, example body, and a paste-ready fetch snippet for one action",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "platform",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        },
+        {
+          "name": "action-id",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Emit raw JSON for AI/script consumption",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--var <NAME>",
+          "long": "--var",
+          "short": null,
+          "description": "ctx.vars variable name for the connection (default: YOUR_CONNECTION)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--legacy-env",
+          "long": "--legacy-env",
+          "short": null,
+          "description": "Emit the deprecated process.env-based snippet (will be removed in a future release)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "oauth-action",
+        "platforms"
+      ],
+      "name": "platforms",
+      "aliases": [],
+      "description": "List available OAuth-backed platforms",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Emit raw JSON for AI/script consumption",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "oauth-action",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "connection"
+      ],
+      "name": "connection",
+      "aliases": [],
+      "description": "Manage OAuth connections",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "connection",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List OAuth connections in the active workspace",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "connection",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "ai"
+      ],
+      "name": "ai",
+      "aliases": [],
+      "description": "AI helper tools",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "ai",
+        "init"
+      ],
+      "name": "init",
+      "aliases": [],
+      "description": "Install SolidActions AI skills and SDK reference for AI-assisted development",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "--claude",
+          "long": "--claude",
+          "short": null,
+          "description": "Use CLAUDE.md (for Claude Code)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--agents",
+          "long": "--agents",
+          "short": null,
+          "description": "Use AGENTS.md (for Codex, Cursor, Gemini, Windsurf, etc.)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "ai",
+        "examples"
+      ],
+      "name": "examples",
+      "aliases": [],
+      "description": "Install example workflows for AI reference",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "names",
+          "required": false,
+          "variadic": true,
+          "description": "Example names to install (omit for interactive selector)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--all",
+          "long": "--all",
+          "short": null,
+          "description": "Install all available examples",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--overwrite",
+          "long": "--overwrite",
+          "short": null,
+          "description": "Overwrite existing examples without warning",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "ai",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "skill"
+      ],
+      "name": "skill",
+      "aliases": [],
+      "description": "Manage agent skills (crews SOP surface)",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "push"
+      ],
+      "name": "push",
+      "aliases": [],
+      "description": "Push a local skill folder into the library (create, or update if it already exists)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "dir",
+          "required": true,
+          "variadic": false,
+          "description": "Path to the skill directory (must contain SKILL.md)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--role <name>",
+          "long": "--role",
+          "short": null,
+          "description": "Scope the skill to a role instead of the shared library",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output result as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--dry-run",
+          "long": "--dry-run",
+          "short": null,
+          "description": "Preview create vs update without writing",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--publish",
+          "long": "--publish",
+          "short": null,
+          "description": "Publish (snapshot) the skill after pushing, making it live for agents",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--force",
+          "long": "--force",
+          "short": null,
+          "description": "Skip the drift guard: push without checking the remote against your local sidecar revision",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "publish"
+      ],
+      "name": "publish",
+      "aliases": [],
+      "description": "Publish (snapshot) a skill so its latest pushed revision goes live for agents",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Skill name/identifier (e.g. \"my-skill\" or \"shared/my-skill\")"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output result as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "pull"
+      ],
+      "name": "pull",
+      "aliases": [],
+      "description": "Fetch a skill from the library to a local folder for editing (inverse of push)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Skill name or identifier"
+        },
+        {
+          "name": "dest",
+          "required": false,
+          "variadic": false,
+          "description": "Destination directory (defaults to ./<name>/)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output raw read result as JSON (no file writes)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List skills in the library",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--limit <n>",
+          "long": "--limit",
+          "short": null,
+          "description": "Maximum number of skills to return",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "view"
+      ],
+      "name": "view",
+      "aliases": [],
+      "description": "Show one skill",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "delete"
+      ],
+      "name": "delete",
+      "aliases": [],
+      "description": "Delete a skill (Admin only)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "dev"
+      ],
+      "name": "dev",
+      "aliases": [],
+      "description": "Run YOUR WORKING COPY of a skill locally with crew variables fetched from the platform (dev loop; default env dev; secrets need env:reveal). To execute the server-stored skill instead: skill exec <name> --target sandbox|host",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "dir",
+          "required": true,
+          "variadic": false,
+          "description": "Local skill directory (must contain SKILL.md)"
+        },
+        {
+          "name": "command",
+          "required": true,
+          "variadic": true,
+          "description": "Command to run (after --), e.g. -- node scripts/q.js"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--crew <nameOrId>",
+          "long": "--crew",
+          "short": null,
+          "description": "Crew whose variables to fetch (omit for shared skills)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--environment <env>",
+          "long": "--environment",
+          "short": null,
+          "description": "Variable environment: production|staging|dev",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "--env-file <path>",
+          "long": "--env-file",
+          "short": null,
+          "description": "Local KEY=VALUE overrides (reserved names ignored)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "run"
+      ],
+      "name": "run",
+      "aliases": [],
+      "description": "[deprecated] alias of `skill dev` — removed in v2.0.0",
+      "hidden": true,
+      "arguments": [
+        {
+          "name": "dir",
+          "required": true,
+          "variadic": false,
+          "description": "Local skill directory (must contain SKILL.md)"
+        },
+        {
+          "name": "command",
+          "required": true,
+          "variadic": true,
+          "description": "Command to run (after --)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--crew <nameOrId>",
+          "long": "--crew",
+          "short": null,
+          "description": "Crew whose variables to fetch (omit for shared skills)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--environment <env>",
+          "long": "--environment",
+          "short": null,
+          "description": "Variable environment: production|staging|dev",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "--env-file <path>",
+          "long": "--env-file",
+          "short": null,
+          "description": "Local KEY=VALUE overrides (reserved names ignored)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "exec"
+      ],
+      "name": "exec",
+      "aliases": [],
+      "description": "Execute the SERVER-STORED skill (never local edits — see `skill dev`). --target picks where: sandbox (server) or host (this machine, transparent cache). Default env production for both targets; secrets on host need env:reveal",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Skill name or identifier (names only — directories are rejected)"
+        },
+        {
+          "name": "command",
+          "required": true,
+          "variadic": true,
+          "description": "Command to run (after --), e.g. -- node scripts/q.js"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--target <target>",
+          "long": "--target",
+          "short": null,
+          "description": "Where to execute: 'sandbox' or 'host'",
+          "required": true,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--role <name>",
+          "long": "--role",
+          "short": null,
+          "description": "Role-scoped skill (crew inferred from the role)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--in-crew <crew>",
+          "long": "--in-crew",
+          "short": null,
+          "description": "Disambiguate when the role name exists in multiple crews",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--crew <nameOrId>",
+          "long": "--crew",
+          "short": null,
+          "description": "host+shared only: crew whose variables to fetch",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--environment <env>",
+          "long": "--environment",
+          "short": null,
+          "description": "Variable environment: production|staging|dev (default production)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--env-file <path>",
+          "long": "--env-file",
+          "short": null,
+          "description": "host only: local KEY=VALUE overrides (reserved names ignored)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "role"
+      ],
+      "name": "role",
+      "aliases": [],
+      "description": "Manage roles (crews SOP surface)",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "role",
+        "push"
+      ],
+      "name": "push",
+      "aliases": [],
+      "description": "Push a role definition (create or update)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "dir",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--dry-run",
+          "long": "--dry-run",
+          "short": null,
+          "description": "Preview create vs update without writing",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output result as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "role",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "doc"
+      ],
+      "name": "doc",
+      "aliases": [],
+      "description": "Manage docs in SA-Docs",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "doc",
+        "push"
+      ],
+      "name": "push",
+      "aliases": [],
+      "description": "Recursively upload a local markdown tree into SA-Docs",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "dir",
+          "required": true,
+          "variadic": false,
+          "description": "Path to the directory containing markdown files"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--on-conflict <mode>",
+          "long": "--on-conflict",
+          "short": null,
+          "description": "Conflict resolution: skip|overwrite|rename (default: skip)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "skip"
+        },
+        {
+          "flags": "--type <slug>",
+          "long": "--type",
+          "short": null,
+          "description": "Doc-type slug to apply to all uploaded docs",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--folder <base>",
+          "long": "--folder",
+          "short": null,
+          "description": "Nest the whole upload under this base folder path in SA-Docs",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--dry-run",
+          "long": "--dry-run",
+          "short": null,
+          "description": "Preview what would be created without writing",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--force",
+          "long": "--force",
+          "short": null,
+          "description": "Overwrite tracked docs (from a prior doc pull) without a base-revision drift guard",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output result as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "doc",
+        "pull"
+      ],
+      "name": "pull",
+      "aliases": [],
+      "description": "Download a Docs folder tree to a local directory for editing (inverse of push)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "folder",
+          "required": true,
+          "variadic": false,
+          "description": "Docs folder path (or a single doc path)"
+        },
+        {
+          "name": "dest",
+          "required": false,
+          "variadic": false,
+          "description": "Destination directory (defaults to ./<last-segment>/)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Overwrite a non-empty destination without confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--overwrite",
+          "long": "--overwrite",
+          "short": null,
+          "description": "DESTRUCTIVE: discard unpushed local changes (tracked files whose content no longer matches the last pull) and overwrite them; implies --yes",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Machine-readable output",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "doc",
+        "upload"
+      ],
+      "name": "upload",
+      "aliases": [],
+      "description": "Upload one or more media files to SA-Docs (requires a token with the \"docs\" ability)",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "files",
+          "required": true,
+          "variadic": true,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--folder <path>",
+          "long": "--folder",
+          "short": null,
+          "description": "Folder path to upload into (auto-created if missing)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--title <title>",
+          "long": "--title",
+          "short": null,
+          "description": "Title for the uploaded doc (only valid with a single file)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--replace <doc-id-or-path>",
+          "long": "--replace",
+          "short": null,
+          "description": "replace the bytes of an existing media doc (by id, or by docs path)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "doc",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    }
+  ]
+}

@@ -65,3 +65,31 @@ export async function loadContentFragment(path) {
   const { data, body: rawBody } = parseFrontMatter(text, { source: path });
   return { data, body: trimBodyBoundary(rawBody) };
 }
+
+/**
+ * Find the 1-based line number within `fileText` (the full file, front
+ * matter included) at which `body` begins — `body` being whatever a
+ * `load*` function above returned, or a raw post-front-matter slice for a
+ * file with no such loader. Front-matter length isn't a fixed, uniform
+ * offset: `trimBodyBoundary` conditionally drops a further leading blank
+ * line, so the true offset must be measured, not assumed. Used to translate
+ * a line number found by scanning `body` (or text derived from it) back
+ * into a real, file-actual line number.
+ *
+ * @param {string} fileText
+ * @param {string} body
+ * @returns {number}
+ */
+export function locateBodyStartLine(fileText, body) {
+  const offset = fileText.indexOf(body);
+  if (offset === -1) {
+    throw new Error('locateBodyStartLine: body is not a substring of fileText');
+  }
+  let line = 1;
+  for (let i = 0; i < offset; i += 1) {
+    if (fileText[i] === '\n') {
+      line += 1;
+    }
+  }
+  return line;
+}

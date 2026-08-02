@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadContentPage } from '../../scripts/lib/content.mjs';
 import { loadContract, render } from '../../scripts/lib/placeholders.mjs';
-import { diffMessage } from './app-parity.test.mjs';
+import { diffMessage } from './helpers/diff.mjs';
 
 /**
  * Byte-parity proof for the marketing `/docs/troubleshooting` page extraction

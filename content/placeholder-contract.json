@@ -15,7 +15,7 @@
     },
     "guidance_cli_version": {
       "description": "The @solidactions/cli minor line this prose was written against.",
-      "public_value": "3.2"
+      "public_value": "3.3"
     },
     "docs_last_reviewed": {
       "description": "The last-reviewed date shown on marketing docs pages, as authored (e.g. \"Month D, YYYY\").",

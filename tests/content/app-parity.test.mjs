@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { loadGuideTopic } from '../../scripts/lib/content.mjs';
 import { loadContract, render } from '../../scripts/lib/placeholders.mjs';
 import { parseOrder } from '../../scripts/lib/order.mjs';
+import { diffMessage } from './helpers/diff.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const guideDir = path.join(root, 'content/guide');
@@ -14,6 +15,12 @@ const contractPath = path.join(root, 'content/placeholder-contract.json');
 
 const TOPICS = ['setup', 'hosted', 'deploy', 'troubleshooting', 'hands_off'];
 
+// guidance_cli_version is hardcoded to '3.2' below on purpose, even though
+// content/placeholder-contract.json now pins '3.3': these contexts reproduce
+// the app exactly as it is merged today, and the app's own
+// GUIDANCE_CLI_VERSION constant is still '3.2'. Do not "fix" this
+// inconsistency — PR 3 of this wave reconciles the app, and changing it here
+// would destroy the byte-parity/losslessness proof these goldens exist for.
 const CONTEXTS = {
   cloud: {
     app_url: 'https://app.solidactions.com',
@@ -30,30 +37,6 @@ const CONTEXTS = {
     self_hosted: true,
   },
 };
-
-/**
- * assert.strictEqual's default failure message on ~2KB of prose is useless
- * (a wall of diff-less text). Build a message naming the first differing
- * byte offset and a small window of context around it, but still assert
- * with strictEqual so this is genuinely a `===` check on the full strings.
- */
-export function diffMessage(actual, expected, label) {
-  if (actual === expected) {
-    return undefined;
-  }
-  const len = Math.min(actual.length, expected.length);
-  let i = 0;
-  while (i < len && actual[i] === expected[i]) {
-    i++;
-  }
-  const start = Math.max(0, i - 20);
-  return [
-    `${label}: strings differ at byte offset ${i}`,
-    `  (expected length ${expected.length}, actual length ${actual.length})`,
-    `  expected: ...${JSON.stringify(expected.slice(start, i + 20))}...`,
-    `  actual:   ...${JSON.stringify(actual.slice(start, i + 20))}...`,
-  ].join('\n');
-}
 
 async function renderTopic(topic, branch) {
   const contract = await loadContract(contractPath);

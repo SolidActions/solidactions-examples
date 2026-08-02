@@ -195,6 +195,103 @@ export function render(body, context, { contract, source }) {
 }
 
 /**
+ * Same selection/substitution logic as `buildOutput`, but additionally
+ * builds `lineMap`: `lineMap[i]` (0-based) is the 1-based line number of
+ * `body` that produced output line `i + 1`. Needed by a caller (e.g.
+ * scripts/check-content.mjs) that reports a line number found by scanning
+ * the *rendered* text but needs to point at the real source line instead.
+ *
+ * This stays exact because of two properties of this repo's content: every
+ * contract `public_value` is a single-line string (a placeholder
+ * substitution never adds or removes a line break), and an
+ * `{{#if}}`/`{{else}}`/`{{/if}}` marker always sits at the end of its own
+ * source line (never mid-line before more conditional content) — so a
+ * dropped arm always drops whole trailing lines, never a partial one.
+ */
+function buildOutputWithLineMap(tokens, context, source) {
+  const output = [];
+  const lineMap = [1];
+  let ifState = null;
+  let outputLineIdx = 0;
+  let sourceLine = 1;
+
+  function resolvePlaceholder(name) {
+    if (!Object.hasOwn(context, name)) {
+      throw new Error(`${source}: placeholder "{{${name}}}" has no value in the render context`);
+    }
+    return String(context[name]);
+  }
+
+  function emit(text) {
+    output.push(text);
+    for (const ch of text) {
+      if (ch === '\n') {
+        sourceLine += 1;
+        outputLineIdx += 1;
+        lineMap[outputLineIdx] = sourceLine;
+      }
+    }
+  }
+
+  function skip(text) {
+    for (const ch of text) {
+      if (ch === '\n') {
+        sourceLine += 1;
+      }
+    }
+  }
+
+  for (const token of tokens) {
+    if (ifState === null) {
+      if (token.type === 'text') {
+        emit(token.value);
+      } else if (token.type === 'ph') {
+        emit(resolvePlaceholder(token.name));
+      } else if (token.type === 'if') {
+        if (!Object.hasOwn(context, token.cond)) {
+          throw new Error(`${source}: condition "${token.cond}" has no value in the render context`);
+        }
+        ifState = { cond: token.cond, currentArm: 'if', selectedArm: Boolean(context[token.cond]) ? 'if' : 'else' };
+      }
+      continue;
+    }
+
+    const selected = ifState.currentArm === ifState.selectedArm;
+    if (token.type === 'text') {
+      if (selected) {
+        emit(token.value);
+      } else {
+        skip(token.value);
+      }
+    } else if (token.type === 'ph') {
+      if (selected) {
+        emit(resolvePlaceholder(token.name));
+      }
+      // An unselected placeholder contributes no newlines to skip: its raw
+      // "{{name}}" tag and its substituted value are both single-line.
+    } else if (token.type === 'else') {
+      ifState.currentArm = 'else';
+    } else if (token.type === 'end') {
+      ifState = null;
+    }
+  }
+
+  return { text: output.join(''), lineMap };
+}
+
+/**
+ * @param {string} body
+ * @param {Record<string, unknown>} context
+ * @param {{ contract: object, source: string }} options
+ * @returns {{ text: string, lineMap: number[] }}
+ */
+export function renderWithLineMap(body, context, { contract, source }) {
+  const tokens = tokenize(body, source);
+  validateNamesAndStructure(tokens, contract, source);
+  return buildOutputWithLineMap(tokens, context, source);
+}
+
+/**
  * Report which placeholders and conditions a body uses, without rendering it.
  * @param {string} body
  * @returns {{ placeholders: Set<string>, conditions: Set<string> }}
