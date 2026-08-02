@@ -1,0 +1,3 @@
+# Assembly contract for the full workflows_guide response.
+separator: "\n\n---\n\n"
+topics: [setup, hosted, deploy, troubleshooting, hands_off]

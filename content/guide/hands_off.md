@@ -1,0 +1,51 @@
+---
+topic: hands_off
+description: Documents calling this MCP endpoint from workflow code with an API key for unattended automation.
+renderers: [guide]
+placeholders: [app_url, mcp_url]
+conditions: []
+---
+## Writing back into the workspace from a workflow
+
+A running workflow has no access to this MCP connection's session — if it needs to write
+a Doc, update a Pegboard, or otherwise act on the workspace, the supported machine path is
+for the workflow's own code to call this same MCP endpoint over plain HTTP, authenticated
+with an API key as a Bearer token:
+
+1. `POST {{mcp_url}}` with `Authorization: Bearer <API_KEY>` and a JSON-RPC `initialize`
+   request; capture the `Mcp-Session-Id` response header.
+2. `POST {{mcp_url}}` again with that same header plus a JSON-RPC `tools/call` request
+   naming the tool (e.g. `docs_edit`) and its arguments.
+
+**An API-key session's tool scope depends on the key.** A plain API key exposes
+`docs_*`, `crews_*`, `dashboards_*`, `search`, and `workflows_guide`. `peg_*` tools
+additionally require a **pegboard-scoped** key: when generating a key under
+Settings → API Keys, pick a board in the "Pegboard access" selector. One board per
+key — mint one key per board you need to write to. Keys minted without a pegboard
+cannot call `peg_*`.
+
+Full REST API reference (OpenAPI 3.1, machine-readable): {{app_url}}/api/v1/openapi.yaml
+
+```
+POST {{mcp_url}}
+Authorization: Bearer <API_KEY>
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{...}}
+→ capture Mcp-Session-Id header from the response
+
+POST {{mcp_url}}
+Authorization: Bearer <API_KEY>
+Mcp-Session-Id: <captured-id>
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"docs_edit","arguments":{...}}}
+```
+
+## Hands-off recipes
+
+Two ways to get an AI thinking about a job without a human in the loop:
+
+- **Schedule the customer's own AI.** Use Claude Code's scheduled runs (or a cowork
+  schedule) to run a prompt on a cadence that connects to this MCP endpoint and does the
+  reasoning — no workflow code needed, the AI *is* the job.
+- **Call an LLM API directly from the workflow.** Set a bring-your-own-key variable
+  (`solidactions env set <project> ANTHROPIC_API_KEY ...`) and call the provider
+  API from the workflow's TypeScript code for cases that need to run unattended on a
+  schedule rather than via a live AI session.
