@@ -94,6 +94,8 @@ test('a real skills-corpus span (solidactions-getting-started.md) reports its tr
   }));
   const target = spans.find((s) => s.raw.includes('<slug|uuid|name>'));
   assert.ok(target, 'expected to find the "-w <slug|uuid|name> ..." span');
-  // The real file line, not the front-matter-relative line 4 this used to report.
-  assert.equal(target.line, 8);
+  // The real file line, not the front-matter-relative line 4 this used to
+  // report. #1027 PM-fix round added a "renderers:" front-matter line ahead
+  // of this file's body, shifting the target span from line 8 to line 9.
+  assert.equal(target.line, 9);
 });

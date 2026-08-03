@@ -1,6 +1,7 @@
 ---
 name: solidactions-crew-skills
 description: Use when developing, testing, or running SolidActions CREW SKILL scripts (SKILL.md + scripts/ bundles in the crews library) via the CLI — running a skill's script locally with crew variables, pulling/pushing skill folders, or smoking a deployed skill in its sandbox. Not for workflow projects (solidactions.yaml) — those use the other solidactions-* skills.
+renderers: [skills]
 ---
 
 ## The One Rule That Prevents Wrong-Source Mistakes

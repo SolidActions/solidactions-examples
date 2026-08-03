@@ -1,6 +1,7 @@
 ---
 name: solidactions-deploy-and-config
 description: Use when the user mentions deploying a SolidActions project, setting variables, configuring webhook triggers, scheduling workflows (cron), or debugging a workflow run. Encodes the CLI-only deploy rule, env-set discipline, webhook auth recipes, schedule setup, multi-env deploy defaults, and run debugging.
+renderers: [skills]
 ---
 
 ## Hard Rules

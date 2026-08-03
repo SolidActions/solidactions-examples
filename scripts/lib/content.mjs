@@ -2,6 +2,15 @@ import { readFile } from 'node:fs/promises';
 import { parseFrontMatter } from './front-matter.mjs';
 
 /**
+ * The full set of valid `renderers` front-matter values (spec §A): which
+ * output target(s) a content file may declare it renders to. Every content
+ * file — guide, page, fragment, skill — must declare a `renderers` array
+ * whose values are all drawn from this set. Named once here so the
+ * completeness checks that enforce it can't drift into separate copies.
+ */
+export const ALLOWED_RENDERERS = ['guide', 'marketing', 'skills'];
+
+/**
  * Cross-language body-boundary contract (the PHP renderer in the app, and
  * the marketing Astro renderer, both implement this same rule): a content
  * file's body begins with the blank line after the closing "---" and ends

@@ -1,6 +1,7 @@
 ---
 name: solidactions-oauth-actions
 description: Use when the user wants to call a third-party API (Gmail, Google Calendar, Slack, GitHub, Notion, Asana, Box, etc.) from a SolidActions workflow, OR when they reference an `oauth:` mapping in `solidactions.yaml`. Encodes the SA-proxy URL pattern, the `oauth-action search`/`view` discovery flow, and the rule that workflow code uses `fetch` against the proxy — never a third-party SDK.
+renderers: [skills]
 ---
 
 ## Hard Rules

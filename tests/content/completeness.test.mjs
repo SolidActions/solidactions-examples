@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadGuideTopic, loadContentPage, loadContentFragment } from '../../scripts/lib/content.mjs';
+import { loadGuideTopic, loadContentPage, loadContentFragment, ALLOWED_RENDERERS } from '../../scripts/lib/content.mjs';
 import { loadContract, render, collectPlaceholders } from '../../scripts/lib/placeholders.mjs';
+import { parseFrontMatter } from '../../scripts/lib/front-matter.mjs';
 
 /**
  * Byte-parity (app-parity.test.mjs, marketing-parity.test.mjs) proves each
@@ -32,6 +33,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const guideDir = path.join(root, 'content/guide');
 const pagesDir = path.join(root, 'content/pages');
 const fragmentsDir = path.join(root, 'content/fragments');
+const skillsDir = path.join(root, 'content/skills');
 const contractPath = path.join(root, 'content/placeholder-contract.json');
 
 function sentinelFor(name) {
@@ -68,6 +70,22 @@ const corpus = await Promise.all([
     return { name, filePath, data, body };
   }),
 ]);
+
+// content/skills/*.md front matter is keyed by `name`/`description` (loaded
+// raw via parseFrontMatter, not the placeholder-aware loaders above) — see
+// the "deliberately NOT part of this scan" note below for why they stay out
+// of the placeholder/condition corpus. They still owe a "renderers" pin, so
+// they get their own small corpus, unioned into rendererCorpus further down.
+const skillEntries = await readdir(skillsDir);
+const skillFileNames = skillEntries.filter((name) => name.endsWith('.md')).sort();
+const skillsCorpus = await Promise.all(
+  skillFileNames.map(async (name) => {
+    const filePath = path.join(skillsDir, name);
+    const text = await readFile(filePath, 'utf8');
+    const { data, body } = parseFrontMatter(text, { source: filePath });
+    return { name, filePath, data, body };
+  }),
+);
 
 // Every placeholder gets its own unique, unmistakable sentinel value; this
 // same context is reused for every file and every branch below.
@@ -223,3 +241,31 @@ test('the sentinel-injection loop exercised every contract placeholder, and that
   assert.equal(exercised, placeholderNames.length);
   assert.ok(exercised > 0, 'the sentinel-injection loop exercised zero placeholders');
 });
+
+// --- 5. renderers front matter ---------------------------------------------
+//
+// Spec §A: every content file declares which render target(s) it belongs to
+// via a `renderers` front-matter key. Unlike the placeholder/condition scan
+// above, this applies to every content class, including content/skills/*.md
+// — so it runs over its own corpus (guide + pages + fragments + skills), not
+// the placeholder-only `corpus`.
+
+const rendererCorpus = [...corpus, ...skillsCorpus];
+
+for (const file of rendererCorpus) {
+  test(`${file.name}: front matter declares a "renderers" key`, () => {
+    assert.ok(Object.hasOwn(file.data, 'renderers'), `${file.name} front matter is missing a "renderers" key`);
+  });
+}
+
+for (const file of rendererCorpus) {
+  test(`${file.name}: every declared "renderers" value is one of ${JSON.stringify(ALLOWED_RENDERERS)}`, () => {
+    const renderers = file.data.renderers ?? [];
+    for (const value of renderers) {
+      assert.ok(
+        ALLOWED_RENDERERS.includes(value),
+        `${file.name} declares unknown renderer target ${JSON.stringify(value)} — allowed: ${JSON.stringify(ALLOWED_RENDERERS)}`,
+      );
+    }
+  });
+}
