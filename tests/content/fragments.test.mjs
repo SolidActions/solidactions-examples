@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadContentFragment } from '../../scripts/lib/content.mjs';
@@ -36,3 +36,19 @@ for (const sourceFile of SOURCE_FILES) {
     );
   });
 }
+
+/**
+ * Every other content class is pinned against silent drift: the guide via a
+ * TOPICS/_order.yaml deepEqual (app-parity.test.mjs), the marketing page via
+ * an explicit path (marketing-parity.test.mjs), skills via check-docs.mjs's
+ * name manifest. content/fragments/ had no equivalent — completeness.test.mjs
+ * and scripts/check-content.mjs both discover fragments via a plain
+ * `readdir`, so deleting or adding a fragment file passed every check
+ * silently. This is that pin: a literal, sorted inventory that must be
+ * updated by hand whenever a fragment is added or removed.
+ */
+test('content/fragments/ contains exactly the expected inventory of fragment files', async () => {
+  const entries = await readdir(path.join(root, 'content/fragments'));
+  const fragmentFiles = entries.filter((name) => name.endsWith('.md')).sort();
+  assert.deepEqual(fragmentFiles, ['hard-rules.md', 'mcp-hookup.md']);
+});
