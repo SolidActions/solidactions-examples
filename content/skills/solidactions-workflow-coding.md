@@ -1,6 +1,7 @@
 ---
 name: solidactions-workflow-coding
 description: Use when writing or modifying TypeScript code in a SolidActions project (any file importing `@solidactions/sdk`, any edit under `src/workflows/` or `src/`, or any user mention of writing a workflow, step, or trigger). Encodes SDK API truth, determinism rules, the respond() early-response pattern, and the instant-vs-wait trigger choice.
+renderers: [skills]
 ---
 
 > **READ `.solidactions/sdk-reference.md` BEFORE using any SDK function you do not know cold.** AIs reliably invent SDK methods that don't exist (e.g., `step.invoke()`, `workflow.spawn()`). The reference file is the source of truth — it's pinned to your installed SDK version. If the function isn't in that file, it doesn't exist. Don't write it.

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "placeholders": {
+    "app_url": {
+      "description": "The SolidActions app root URL, no trailing slash.",
+      "public_value": "https://app.solidactions.com"
+    },
+    "api_keys_url": {
+      "description": "Absolute URL of the API keys settings page.",
+      "public_value": "https://app.solidactions.com/settings/api-keys"
+    },
+    "mcp_url": {
+      "description": "Absolute URL of the app's MCP endpoint.",
+      "public_value": "https://app.solidactions.com/mcp"
+    },
+    "guidance_cli_version": {
+      "description": "The @solidactions/cli minor line this prose was written against.",
+      "public_value": "3.3"
+    },
+    "docs_last_reviewed": {
+      "description": "The last-reviewed date shown on marketing docs pages, as authored (e.g. \"Month D, YYYY\").",
+      "public_value": "July 14, 2026"
+    },
+    "support_email": {
+      "description": "The support contact email address shown on marketing docs pages.",
+      "public_value": "contact@solidactions.com"
+    }
+  },
+  "conditions": {
+    "self_hosted": {
+      "description": "True when the app URL differs from the CLI's built-in cloud default (https://app.solidactions.com). Renderers that target public docs render the else arm.",
+      "public_value": false
+    }
+  }
+}

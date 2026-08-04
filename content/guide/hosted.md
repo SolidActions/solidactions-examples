@@ -1,0 +1,55 @@
+---
+topic: hosted
+description: Covers device login, ephemeral credentials, egress allowlisting, and scheduling from hosted or headless CLI environments.
+renderers: [guide]
+placeholders: [app_url]
+conditions: [self_hosted]
+---
+## Hosted and headless environments
+
+This topic is for a hosted agent sandbox, a cloud dev environment, or a CI job —
+anywhere the CLI runs without an interactive terminal or a persistent disk.
+
+### No TTY is not a problem — device login is the right pattern
+
+`solidactions login --device --global{{#if self_hosted}} --host {{app_url}}{{/if}}` prints a URL and a code; you
+authorize in your own browser, and the CLI stores the token. It takes about 20
+seconds and leaves nothing behind in the sandbox. This is the **primary** login
+pattern for hosted agents, not a workaround for a missing terminal.
+
+Pasting an API key is the **automation fallback**, for when no human is present
+to authorize:
+`solidactions login <API_KEY> --global{{#if self_hosted}} --host {{app_url}}{{/if}}`
+
+### The filesystem is ephemeral — never rely on cached credentials
+
+`~/.solidactions/config.json` does not survive a hosted session. A later
+session — or a scheduled task in the same environment — starts with no
+credentials at all. Log in at the start of every session; never write a script
+that assumes a previous session's config is still there.
+
+### Egress may be blocked — how to recognize it
+
+Hosted sandboxes commonly run behind a domain allowlist, and the app host may
+not be on it. Recognize it by an HTTP **403** that arrives on *every* command
+including `login` — i.e. before you could possibly have an auth problem — with
+an HTML block page in the body instead of a SolidActions JSON error: that's the
+sandbox's egress proxy, not a permissions failure.
+
+Allow-list:
+- the app host itself, `{{app_url}}` — the API and device-login endpoints
+- `registry.npmjs.org` — only if you install the CLI inside the sandbox
+
+If the allowlist can't be changed, run the CLI somewhere it can reach the app
+instead (a laptop, a CI job with egress) — deploying is a one-time act. See
+scheduling below for why that's enough.
+
+### Scheduling: deploy from here, let the platform run it
+
+Deploy interactively once; let SolidActions' own cron run the workflow. A scheduled hosted-agent task shelling out to the CLI is a scheduler wrapping a scheduler.
+
+Declare the schedule in `solidactions.yaml` (`trigger: schedule` plus a cron
+expression) and deploy it once; the workflow then runs on SolidActions'
+infrastructure whether or not the hosted agent, its session, or its own
+scheduler is alive. The cron is evaluated in UTC unless you set a `timezone:` —
+see the `deploy` topic.

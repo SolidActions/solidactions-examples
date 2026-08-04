@@ -13,14 +13,14 @@ const skillNames = [
 ];
 const projectDirs = ['templates/minimal', 'hello-world', 'features-examples', 'google-calendar-sync', 'setup-block-tools'];
 
-const skillFiles = (await readdir(path.join(root, 'skills')))
+const skillFiles = (await readdir(path.join(root, 'content/skills')))
   .filter((file) => file.startsWith('solidactions-') && file.endsWith('.md'))
   .map((file) => file.slice(0, -3))
   .sort();
 assert.deepEqual(skillFiles, [...skillNames].sort(), 'installed skill source manifest drifted');
 
 for (const skillName of skillNames) {
-  const skill = await readFile(path.join(root, 'skills', `${skillName}.md`), 'utf8');
+  const skill = await readFile(path.join(root, 'content/skills', `${skillName}.md`), 'utf8');
   assert(skill.startsWith(`---\nname: ${skillName}\ndescription:`), `${skillName} has invalid frontmatter`);
 }
 
@@ -47,7 +47,7 @@ const documentationFiles = [
   'google-calendar-sync/README.md',
   'hello-world/README.md',
   'setup-block-tools/README.md',
-  ...skillNames.map((skillName) => `skills/${skillName}.md`),
+  ...skillNames.map((skillName) => `content/skills/${skillName}.md`),
 ];
 const rootReadme = await readFile(path.join(root, 'README.md'), 'utf8');
 assert(rootReadme.includes('https://www.solidactions.com/docs'), 'README must use the canonical public docs host');

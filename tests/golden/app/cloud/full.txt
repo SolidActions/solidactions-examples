@@ -1,0 +1,217 @@
+## Fastest path
+
+Four steps to a deployed workflow, once the CLI is installed — see step 1 under
+`## Setup` below:
+
+1. If your environment restricts outbound network access, allow-list the app
+   host — see the `hosted` topic. Skip this if it doesn't.
+2. `solidactions login --device --global` — add `--workspace <name>`
+   only if your account has more than one workspace.
+3. `solidactions init <project> --claude`
+4. `solidactions project deploy <project> -e production --create`
+
+The rest of this topic explains each step; `deploy` covers variables and runs.
+
+## What workflows are (and what this connection is)
+
+A **workflow** is a scheduled or recurring job — TypeScript code that runs on
+SolidActions' own managed sandboxes, on a cron schedule or in response to a
+webhook, whether or not anyone is connected. This MCP connection is different: it gives
+you live, conversational read/write access to this workspace's Docs, Crews, Pegboards,
+and Dashboards — instant, but not durable or scheduled. Building a workflow is done from
+Claude Code with the `solidactions` CLI, described below.
+
+## Two systems, two auth models
+
+This connection is **chat-things**: OAuth-authenticated, interactive, live right now
+while you're talking to it. Workflows are **scheduled-things**: they run unattended,
+deployed via the CLI, authenticated with an API key (Bearer token) — never your
+interactive OAuth session. Different auth, different lifecycle; don't conflate the two
+when troubleshooting access issues.
+
+## Setup
+
+This guide's commands target `@solidactions/cli` v3.2.x. Check yours
+with `solidactions --version`; a different major or minor version means this guide
+may be stale — trust the CLI's own `--help` output over this guide in that case.
+
+1. Install the CLI:
+   `npm install -g @solidactions/cli`
+2. Create an API key at https://app.solidactions.com/settings/api-keys (needed only for the non-interactive
+   API-key fallback below — device login needs none).
+3. Log in. Device login is the primary path — it opens a browser to authorize,
+   and `--global` makes the config destination explicit (no TTY needed):
+   `solidactions login --device --global`
+   A sole workspace is selected automatically; add `--workspace <name>` only to
+   select among multiple workspaces.
+   For non-interactive/automation contexts, paste an API key instead:
+   `solidactions login <API_KEY> --global`
+4. Scaffold a project. `--claude` also writes Claude Code skills and the SDK reference
+   into the project — **read `.claude/skills/` after scaffolding**, before writing any
+   workflow code:
+   `solidactions init <project-name> --claude`
+5. Before the first deploy, install dependencies inside the new project so your
+   editor and local builds resolve the SDK (the platform build installs from the
+   scaffold's lockfile):
+   `cd <project-name> && npm install`
+
+---
+
+## Hosted and headless environments
+
+This topic is for a hosted agent sandbox, a cloud dev environment, or a CI job —
+anywhere the CLI runs without an interactive terminal or a persistent disk.
+
+### No TTY is not a problem — device login is the right pattern
+
+`solidactions login --device --global` prints a URL and a code; you
+authorize in your own browser, and the CLI stores the token. It takes about 20
+seconds and leaves nothing behind in the sandbox. This is the **primary** login
+pattern for hosted agents, not a workaround for a missing terminal.
+
+Pasting an API key is the **automation fallback**, for when no human is present
+to authorize:
+`solidactions login <API_KEY> --global`
+
+### The filesystem is ephemeral — never rely on cached credentials
+
+`~/.solidactions/config.json` does not survive a hosted session. A later
+session — or a scheduled task in the same environment — starts with no
+credentials at all. Log in at the start of every session; never write a script
+that assumes a previous session's config is still there.
+
+### Egress may be blocked — how to recognize it
+
+Hosted sandboxes commonly run behind a domain allowlist, and the app host may
+not be on it. Recognize it by an HTTP **403** that arrives on *every* command
+including `login` — i.e. before you could possibly have an auth problem — with
+an HTML block page in the body instead of a SolidActions JSON error: that's the
+sandbox's egress proxy, not a permissions failure.
+
+Allow-list:
+- the app host itself, `https://app.solidactions.com` — the API and device-login endpoints
+- `registry.npmjs.org` — only if you install the CLI inside the sandbox
+
+If the allowlist can't be changed, run the CLI somewhere it can reach the app
+instead (a laptop, a CI job with egress) — deploying is a one-time act. See
+scheduling below for why that's enough.
+
+### Scheduling: deploy from here, let the platform run it
+
+Deploy interactively once; let SolidActions' own cron run the workflow. A scheduled hosted-agent task shelling out to the CLI is a scheduler wrapping a scheduler.
+
+Declare the schedule in `solidactions.yaml` (`trigger: schedule` plus a cron
+expression) and deploy it once; the workflow then runs on SolidActions'
+infrastructure whether or not the hosted agent, its session, or its own
+scheduler is alive. The cron is evaluated in UTC unless you set a `timezone:` —
+see the `deploy` topic.
+
+---
+
+## Deploy the target environment first
+
+Project-scoped variables can be set only after the target environment exists. For
+production, deploy and create it before running `env set`:
+
+`solidactions project deploy <project> -e production --create`
+
+## Variables
+
+- List the workspace's OAuth connections:
+  `solidactions connection list`
+- Bind a project key to an OAuth connection by name:
+  `solidactions env set <project> <KEY> --oauth-connection <name>`
+- Restore a project's YAML-declared source for a key:
+  `solidactions env reset <project> <KEY>`
+
+Project-scoped `env set` and `env reset` share
+`-e/--env production|staging|dev`; the environment defaults to `dev`. For a literal
+project value, use `solidactions env set <project> <KEY> <value>`. Global writes require
+the explicit flag:
+`solidactions env set <KEY> <value> --global`. A YAML `env:` declaration in
+`solidactions.yaml` only binds **project**-scoped variables, so a global-only var never
+reaches the workflow. If a deployed workflow can't see a variable it expects, check
+its scope before anything else.
+
+**Custom variables must not use the `SOLIDACTIONS_` prefix — the platform rejects
+them.** That prefix is reserved for the SDK's own infra keys (`SOLIDACTIONS_API_KEY`,
+`SOLIDACTIONS_API_URL`) on `process.env` — a custom var with the same name would
+clobber the platform credential (historically a baffling `HTTP error 401` out of
+`InvokeSystemDatabase.init` before any workflow code even ran). `env set`, `env push`,
+YAML `env:` declarations, and the web UI all reject reserved names with an
+explanation. Pick a project-specific prefix instead.
+
+## Deploy and run
+
+- Deploy: `solidactions project deploy <name> .`
+- Trigger a run: `solidactions run start <project> <workflow>`
+- List runs: `solidactions run list`
+- Schedules are declared in `solidactions.yaml` (`trigger: schedule`, a cron expression)
+  and deployed the same way; list them with `solidactions schedule list`. The cron
+  expression is evaluated in **UTC** unless you set `timezone: "America/Chicago"` (an
+  IANA timezone string) on the extended `schedule:` object; `solidactions schedule set
+  <project> <cron> --timezone <IANA timezone>` sets it from the CLI instead.
+
+---
+
+## Troubleshooting
+
+- **`fetch failed`** almost always means one of two things: the workflow sandbox tried to
+  reach `localhost` (there is no "localhost" inside a sandbox — use the public app URL or
+  a tunnel URL instead), or a required variable was never set (see the
+  global-vs-project trap above).
+- Inspect a specific run for detail: `solidactions run view <id>`.
+- **A run marked `completed` can still contain a step error** — completion means the
+  workflow finished executing, not that every step succeeded. Always read the run's
+  output/step log, don't just check the top-level status.
+- **`SolidActions.now()` / `SolidActions.randomUUID()` throwing `Cannot read
+  properties of undefined (reading 'runInternalStep')`** means the project is on
+  `@solidactions/sdk` < 0.7.0 — workflow-scope support for these primitives shipped
+  in 0.7.0. Bump the dependency to `^0.7.0`, regenerate the lockfile, and redeploy.
+
+---
+
+## Writing back into the workspace from a workflow
+
+A running workflow has no access to this MCP connection's session — if it needs to write
+a Doc, update a Pegboard, or otherwise act on the workspace, the supported machine path is
+for the workflow's own code to call this same MCP endpoint over plain HTTP, authenticated
+with an API key as a Bearer token:
+
+1. `POST https://app.solidactions.com/mcp` with `Authorization: Bearer <API_KEY>` and a JSON-RPC `initialize`
+   request; capture the `Mcp-Session-Id` response header.
+2. `POST https://app.solidactions.com/mcp` again with that same header plus a JSON-RPC `tools/call` request
+   naming the tool (e.g. `docs_edit`) and its arguments.
+
+**An API-key session's tool scope depends on the key.** A plain API key exposes
+`docs_*`, `crews_*`, `dashboards_*`, `search`, and `workflows_guide`. `peg_*` tools
+additionally require a **pegboard-scoped** key: when generating a key under
+Settings → API Keys, pick a board in the "Pegboard access" selector. One board per
+key — mint one key per board you need to write to. Keys minted without a pegboard
+cannot call `peg_*`.
+
+Full REST API reference (OpenAPI 3.1, machine-readable): https://app.solidactions.com/api/v1/openapi.yaml
+
+```
+POST https://app.solidactions.com/mcp
+Authorization: Bearer <API_KEY>
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{...}}
+→ capture Mcp-Session-Id header from the response
+
+POST https://app.solidactions.com/mcp
+Authorization: Bearer <API_KEY>
+Mcp-Session-Id: <captured-id>
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"docs_edit","arguments":{...}}}
+```
+
+## Hands-off recipes
+
+Two ways to get an AI thinking about a job without a human in the loop:
+
+- **Schedule the customer's own AI.** Use Claude Code's scheduled runs (or a cowork
+  schedule) to run a prompt on a cadence that connects to this MCP endpoint and does the
+  reasoning — no workflow code needed, the AI *is* the job.
+- **Call an LLM API directly from the workflow.** Set a bring-your-own-key variable
+  (`solidactions env set <project> ANTHROPIC_API_KEY ...`) and call the provider
+  API from the workflow's TypeScript code for cases that need to run unattended on a
+  schedule rather than via a live AI session.

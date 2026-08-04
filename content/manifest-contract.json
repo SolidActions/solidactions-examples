@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "cli": {
+    "package": "@solidactions/cli",
+    "release_tag": "v3.3.0",
+    "cli_version": "3.3.0",
+    "manifest_schema_version": 1,
+    "vendored_path": "content/command-manifest.json",
+    "sha256": "3ed30ec6deb4a6882326efededf214bf90c812c3356f2b1bd0ac15cb1b9ee445",
+    "asset_url": "https://github.com/SolidActions/solidactions-cli/releases/download/v3.3.0/command-manifest.json"
+  }
+}

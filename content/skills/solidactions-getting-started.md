@@ -1,6 +1,7 @@
 ---
 name: solidactions-getting-started
 description: Use when the user mentions building, scaffolding, or starting a new SolidActions project, OR when there is no `solidactions.yaml` in the working directory. Encodes the "login once + init per project" bootstrap and the multi-environment discipline (start with one environment unless asked).
+renderers: [skills]
 ---
 
 ## Hard Rules

@@ -1,0 +1,56 @@
+## Fastest path
+
+Four steps to a deployed workflow, once the CLI is installed — see step 1 under
+`## Setup` below:
+
+1. If your environment restricts outbound network access, allow-list the app
+   host — see the `hosted` topic. Skip this if it doesn't.
+2. `solidactions login --device --global` — add `--workspace <name>`
+   only if your account has more than one workspace.
+3. `solidactions init <project> --claude`
+4. `solidactions project deploy <project> -e production --create`
+
+The rest of this topic explains each step; `deploy` covers variables and runs.
+
+## What workflows are (and what this connection is)
+
+A **workflow** is a scheduled or recurring job — TypeScript code that runs on
+SolidActions' own managed sandboxes, on a cron schedule or in response to a
+webhook, whether or not anyone is connected. This MCP connection is different: it gives
+you live, conversational read/write access to this workspace's Docs, Crews, Pegboards,
+and Dashboards — instant, but not durable or scheduled. Building a workflow is done from
+Claude Code with the `solidactions` CLI, described below.
+
+## Two systems, two auth models
+
+This connection is **chat-things**: OAuth-authenticated, interactive, live right now
+while you're talking to it. Workflows are **scheduled-things**: they run unattended,
+deployed via the CLI, authenticated with an API key (Bearer token) — never your
+interactive OAuth session. Different auth, different lifecycle; don't conflate the two
+when troubleshooting access issues.
+
+## Setup
+
+This guide's commands target `@solidactions/cli` v3.2.x. Check yours
+with `solidactions --version`; a different major or minor version means this guide
+may be stale — trust the CLI's own `--help` output over this guide in that case.
+
+1. Install the CLI:
+   `npm install -g @solidactions/cli`
+2. Create an API key at https://app.solidactions.com/settings/api-keys (needed only for the non-interactive
+   API-key fallback below — device login needs none).
+3. Log in. Device login is the primary path — it opens a browser to authorize,
+   and `--global` makes the config destination explicit (no TTY needed):
+   `solidactions login --device --global`
+   A sole workspace is selected automatically; add `--workspace <name>` only to
+   select among multiple workspaces.
+   For non-interactive/automation contexts, paste an API key instead:
+   `solidactions login <API_KEY> --global`
+4. Scaffold a project. `--claude` also writes Claude Code skills and the SDK reference
+   into the project — **read `.claude/skills/` after scaffolding**, before writing any
+   workflow code:
+   `solidactions init <project-name> --claude`
+5. Before the first deploy, install dependencies inside the new project so your
+   editor and local builds resolve the SDK (the platform build installs from the
+   scaffold's lockfile):
+   `cd <project-name> && npm install`

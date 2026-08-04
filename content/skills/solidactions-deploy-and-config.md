@@ -1,6 +1,7 @@
 ---
 name: solidactions-deploy-and-config
 description: Use when the user mentions deploying a SolidActions project, setting variables, configuring webhook triggers, scheduling workflows (cron), or debugging a workflow run. Encodes the CLI-only deploy rule, env-set discipline, webhook auth recipes, schedule setup, multi-env deploy defaults, and run debugging.
+renderers: [skills]
 ---
 
 ## Hard Rules
@@ -266,7 +267,7 @@ The correct order for bootstrapping a new project. Key move: **declare project-l
    solidactions env set GLOBAL_REPORT_API_TOKEN "<secret-value>" -s --global
    ```
 
-   If the global is created after deploy, either map it explicitly with `solidactions env map <project> <local-key> <global-key> -e <environment> -y` or redeploy so the YAML mapping is synchronized.
+   If the global is created after deploy, either map it explicitly with `solidactions env map <project> <local-key> <global-key> -y` or redeploy so the YAML mapping is synchronized.
 
 3. **First deploy creates the project and registers variable declarations.** The platform accepts this even when plain declarations have no values yet:
 
