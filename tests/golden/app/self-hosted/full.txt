@@ -138,6 +138,44 @@ the explicit flag:
 reaches the workflow. If a deployed workflow can't see a variable it expects, check
 its scope before anything else.
 
+### Workspace databases
+
+Bind a variable to a workspace database directly in `solidactions.yaml` — no
+`env set` call required:
+
+```yaml
+env:
+  - ANALYTICS_DB:
+      database: "analytics"
+```
+
+A global key, an `oauth:` connection, and a `database:` name are mutually exclusive
+on one declaration. The platform enforces that server-side (HTTP 422), but do not
+rely on seeing that error: through CLI v3.6.0 the YAML parser keeps only the first
+form it recognizes — `oauth:` beats `database:` — so a declaration carrying both
+deploys silently as the wrong binding instead of failing. Declare exactly one.
+Resolution is exact-name and workspace-scoped — a same-named
+database in another workspace never resolves. Databases are created in the **web
+UI**; there is no CLI command for them.
+
+An unresolved name doesn't fail the deploy: the mapping is stored as "not
+configured" with a warning, and a later deploy applies the resolved database only
+while the mapping is still unconfigured — once you bind it yourself, deploy leaves
+your binding alone (same behavior as `oauth:`).
+
+Workflow code reads the binding as `ctx.vars.<NAME>` — a `DatabaseVar`
+(`{ name, url, token, readOnly }`), not a plain connection string. Wrap it with the
+SDK's `createDatabaseClient()` rather than reading the fields directly.
+
+**A database-bound variable cannot be named `json` or `__solidactions_serializer`**
+— those collide with the platform's SuperJSON control members, on top of the
+`SOLIDACTIONS_` prefix rule below.
+
+Every deploy re-syncs the whole `env:` list and prunes. **Removing a declaration
+deletes its mapping on the next deploy even if you overrode the value with
+`env set`** — the override does not clear the YAML markers that select the row for
+pruning. Only mappings created manually, that were never declared in YAML, survive.
+
 **Custom variables must not use the `SOLIDACTIONS_` prefix — the platform rejects
 them.** That prefix is reserved for the SDK's own infra keys (`SOLIDACTIONS_API_KEY`,
 `SOLIDACTIONS_API_URL`) on `process.env` — a custom var with the same name would
@@ -145,6 +183,36 @@ clobber the platform credential (historically a baffling `HTTP error 401` out of
 `InvokeSystemDatabase.init` before any workflow code even ran). `env set`, `env push`,
 YAML `env:` declarations, and the web UI all reject reserved names with an
 explanation. Pick a project-specific prefix instead.
+
+## Pause or resume new starts
+
+These explicit, reversible commands control whether a project or workflow admits new
+root starts. Their `-e/--env production|staging|dev` option defaults to `dev`; use
+`-e production` to target production:
+
+- `solidactions project disable <project> [-e production|staging|dev]`
+- `solidactions project enable <project> [-e production|staging|dev]`
+- `solidactions workflow disable <project> <workflow> [-e production|staging|dev]`
+- `solidactions workflow enable <project> <workflow> [-e production|staging|dev]`
+
+Inspect a workflow's stored admission state without changing it:
+
+`solidactions workflow view <project> <workflow> [-e production|staging|dev] [--json]`
+
+This query is read-only and, like the enable and disable commands, its environment
+defaults to `dev`; use `-e production` to inspect production. Add `--json` for the
+machine-readable fields and booleans. **Enabled source** explains whether the workflow
+flag is a sticky manual override (deploy will not change it) or comes from YAML (a
+later deploy may update it). **Effective state** combines retirement with
+the workflow and project gates for direct new root starts; schedule gates remain
+independent.
+
+State set with these commands is a sticky manual override: deploy does not replace it.
+Disabling blocks new root starts through CLI/API, schedules, webhooks, MCP, manual
+dead-letter retry, and rerun. It does not cancel an already-admitted root: its queued work, automatic retries, child legs, sleeping or signal-waiting phases, and running work continue.
+
+The project, workflow, and schedule gates are independent. Every applicable gate must
+allow a new root start. Enabling one does not enable the others.
 
 ## Deploy and run
 
@@ -156,6 +224,31 @@ explanation. Pick a project-specific prefix instead.
   expression is evaluated in **UTC** unless you set `timezone: "America/Chicago"` (an
   IANA timezone string) on the extended `schedule:` object; `solidactions schedule set
   <project> <cron> --timezone <IANA timezone>` sets it from the CLI instead.
+
+## Land schedules safely, then enable them
+
+Use `schedule.enabled: false` in `solidactions.yaml` to declare an individual schedule
+disabled. There is no `paused:` YAML key. When migrating a project whose variables or
+OAuth bindings are not ready yet, deploy all YAML-declared schedules disabled:
+`solidactions project deploy <project> . --paused`.
+
+Runtime controls are explicit:
+
+- Create or replace a disabled schedule:
+  `solidactions schedule set <project> <cron> --paused`
+- Enable it after prerequisites are configured:
+  `solidactions schedule enable <project> <schedule-id>`
+- Pause it again:
+  `solidactions schedule disable <project> <schedule-id>`
+- Return cron, timezone, input, and enabled state to YAML control:
+  `solidactions schedule reset <project> <schedule-id>`
+
+Enable, disable, and `--paused` are a sticky override: ordinary redeploys remember the
+latest declared YAML state but preserve the effective operator state. `schedule list`
+shows a disagreement between the effective state and the last declared YAML state.
+Reset applies that last declared YAML configuration and clears the override; it fails
+for a schedule that has never had a YAML declaration. Add `-e production|staging|dev`
+to schedule commands when targeting a non-default environment.
 
 ---
 

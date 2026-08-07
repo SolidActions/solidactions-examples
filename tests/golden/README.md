@@ -12,7 +12,21 @@ with the same procedure and re-run the parity test.
 ## Provenance
 
 - **App commit:** `b158922f3d1a630c156fd06c145f26c5e341c03a`
-  (`solidactions-app`, worktree `__worktrees/issues/github-1027`)
+  (`solidactions-app`, worktree `__worktrees/issues/github-1027`) — for `setup`, `hosted`,
+  `troubleshooting`, `hands_off`.
+- **`deploy` re-captured at:** `6d0cb61c49020ac227065fe069ec6ed7833cb21f`
+  (`solidactions-app`, worktree `__worktrees/issues/github-1147`), which added the
+  `### Workspace databases` subsection (app #1147). The re-capture also picked up the
+  `## Pause or resume new starts` and `## Land schedules safely, then enable them`
+  sections, which had landed in the app after the original extraction and were missing
+  here — the delta was verified to be **append-only** (no line of the b158922 capture was
+  modified or removed).
+- **`full` is not a fresh capture.** It is assembled from the five topic goldens joined by
+  `_order.yaml`'s separator, exactly as `app-parity.test.mjs` assembles it. Rebuilding it
+  that way rather than re-capturing from the app keeps the four untouched topics pinned at
+  b158922 — in particular `setup`'s `{{guidance_cli_version}}` stays at the `3.2` the
+  parity test's CONTEXTS pin, even though the app's own constant has since moved to `3.5`.
+  Re-capturing `full` wholesale would have silently imported that drift.
 - **Host branch URLs:**
   - `cloud` — `https://app.solidactions.com` (the CLI's built-in default host; the tool
     renders its non-`--host` arm)
