@@ -187,7 +187,7 @@ Rules:
 - A database-mapped variable's name additionally can't be `json` or `__solidactions_serializer` — reserved for the platform's internal variable serialization envelope, same treatment as the `SOLIDACTIONS_` prefix restriction.
 - Workflow code accesses all four forms via `ctx.vars` in the `defineWorkflow` run body: `ctx.vars.GITHUB_TOKEN`, `ctx.vars.SHARED_API_KEY`, etc. Plain and global-mapped vars resolve as strings; OAuth-mapped vars resolve as a `ConnectionVar` (with `key`, `proxyUrl`, `proxyToken`); database-mapped vars resolve as a `DatabaseVar` (`{ name, url, token, readOnly }`) — wrap it with the SDK's `createDatabaseClient()`. See `.solidactions/sdk-reference.md`'s **Workspace Databases** section for the full API.
 
-⚠️ **Every deploy syncs the complete `env:` declaration list.** Deleting a declaration — or emptying/removing the `env:` block entirely — prunes those YAML-sourced mappings on the next deploy. Mappings configured manually (UI or `solidactions env set` outside the YAML flow) are not YAML-sourced and survive.
+⚠️ **Every deploy syncs the complete `env:` declaration list.** Deleting a declaration — or emptying/removing the `env:` block entirely — prunes those YAML-sourced mappings on the next deploy. Only mappings that were never YAML-declared survive: overriding a YAML-declared variable (UI or `solidactions env set`) doesn't change its provenance, so removing its declaration still deletes the mapping.
 
 ### Setup block — installing CLI tools and language runtimes
 
