@@ -181,7 +181,7 @@ env:
 ```
 
 Rules:
-- A variable maps to **one of** a global variable, an OAuth connection, or a workspace database — never more than one. Combining a global-key mapping with `oauth:` and/or `database:` on the same declaration is rejected at deploy time.
+- A global key, an `oauth:` name, and a `database:` name are **mutually exclusive**: bind each variable to exactly one.
 - OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
 - Workspace database names are matched exactly, scoped to the project's own workspace — a same-named database in another workspace does not resolve.
 - A database-mapped variable's name additionally can't be `json` or `__solidactions_serializer` — reserved for the platform's internal variable serialization envelope, same treatment as the `SOLIDACTIONS_` prefix restriction.
