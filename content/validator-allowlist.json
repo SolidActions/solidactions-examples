@@ -1,0 +1,67 @@
+[
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database list --json",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database create analytics",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database delete analytics --yes --json",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database undelete analytics",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database schema analytics",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database query analytics \"SELECT id, total FROM orders\" --json",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database exec analytics \"DELETE FROM jobs WHERE done = 1\" --yes --json",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database dump analytics backups/analytics.sql",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database import analytics backups/analytics.sql",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database import analytics backups/analytics.sql --resume <checkpoint> --yes",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database create restored --from backups/analytics.sql",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database pull analytics",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-deploy-and-config.md",
+    "span": "solidactions database pull analytics --writable",
+    "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  }
+]
