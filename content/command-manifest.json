@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "cli_name": "solidactions",
-  "cli_version": "3.3.0",
+  "cli_version": "3.6.0",
   "global_options": [
     {
       "flags": "-V, --version",
@@ -402,7 +402,7 @@
           "name": "project",
           "required": true,
           "variadic": false,
-          "description": "Exact project slug (or project family/name when --env is explicit)"
+          "description": "Project family slug or name"
         }
       ],
       "options": [
@@ -410,13 +410,14 @@
           "flags": "-e, --env <environment>",
           "long": "--env",
           "short": "-e",
-          "description": "Resolve an explicit environment (production/staging/dev)",
+          "description": "Target environment (production/staging/dev). Defaults to dev.",
           "required": false,
           "value_required": true,
           "value_optional": false,
           "variadic": false,
           "negated": false,
-          "hidden": false
+          "hidden": false,
+          "default": "dev"
         },
         {
           "flags": "-h, --help",
@@ -529,6 +530,18 @@
           "long": "--config-only",
           "short": null,
           "description": "Sync YAML env declarations without building/deploying",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--paused",
+          "long": "--paused",
+          "short": null,
+          "description": "Deploy with all YAML-declared schedules initially paused",
           "required": false,
           "value_required": false,
           "value_optional": false,
@@ -734,6 +747,304 @@
     {
       "path": [
         "project",
+        "enable"
+      ],
+      "name": "enable",
+      "aliases": [],
+      "description": "Allow new workflow starts for a project environment",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev). Defaults to dev.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "disable"
+      ],
+      "name": "disable",
+      "aliases": [],
+      "description": "Block new workflow starts for a project environment",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev). Defaults to dev.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "project",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "workflow"
+      ],
+      "name": "workflow",
+      "aliases": [],
+      "description": "Manage deployed workflows",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workflow",
+        "view"
+      ],
+      "name": "view",
+      "aliases": [],
+      "description": "View a deployed workflow's enabled state",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "workflow",
+          "required": true,
+          "variadic": false,
+          "description": "Exact workflow slug or name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev). Defaults to dev.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output the server workflow state as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workflow",
+        "enable"
+      ],
+      "name": "enable",
+      "aliases": [],
+      "description": "Allow new starts for a deployed workflow",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "workflow",
+          "required": true,
+          "variadic": false,
+          "description": "Workflow name or slug"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev). Defaults to dev.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workflow",
+        "disable"
+      ],
+      "name": "disable",
+      "aliases": [],
+      "description": "Block new starts for a deployed workflow",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "workflow",
+          "required": true,
+          "variadic": false,
+          "description": "Workflow name or slug"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Environment (production/staging/dev). Defaults to dev.",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "dev"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "workflow",
         "help"
       ],
       "name": "help",
@@ -2121,6 +2432,30 @@
           "hidden": false
         },
         {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--paused",
+          "long": "--paused",
+          "short": null,
+          "description": "Create or replace the schedule disabled",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
           "flags": "-y, --yes",
           "long": "--yes",
           "short": "-y",
@@ -2165,6 +2500,168 @@
       ],
       "options": [
         {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "enable"
+      ],
+      "name": "enable",
+      "aliases": [],
+      "description": "Enable a schedule with a sticky operator override",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "schedule-id",
+          "required": true,
+          "variadic": false,
+          "description": "Schedule ID"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "disable"
+      ],
+      "name": "disable",
+      "aliases": [],
+      "description": "Disable a schedule with a sticky operator override",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "schedule-id",
+          "required": true,
+          "variadic": false,
+          "description": "Schedule ID"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "reset"
+      ],
+      "name": "reset",
+      "aliases": [],
+      "description": "Return a schedule to its last declared YAML configuration",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "project",
+          "required": true,
+          "variadic": false,
+          "description": "Project name"
+        },
+        {
+          "name": "schedule-id",
+          "required": true,
+          "variadic": false,
+          "description": "Schedule ID"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
           "flags": "-h, --help",
           "long": "--help",
           "short": "-h",
@@ -2202,6 +2699,18 @@
         }
       ],
       "options": [
+        {
+          "flags": "-e, --env <environment>",
+          "long": "--env",
+          "short": "-e",
+          "description": "Resolve an explicit environment (production/staging/dev)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
         {
           "flags": "-y, --yes",
           "long": "--yes",
