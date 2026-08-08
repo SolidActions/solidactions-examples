@@ -159,7 +159,7 @@ Runs created this way are recorded with `triggered_by = mcp`. MCP arguments arri
 
 ### Variable declaration forms
 
-The `env:` block declares what variables the workflow expects. Three forms:
+The `env:` block declares what variables the workflow expects. Four forms:
 
 ```yaml
 env:
@@ -174,12 +174,20 @@ env:
       oauth: "GitHub Personal"
   - SLACK_TOKEN:
       oauth: "Slack Workspace"
+
+  # Map to a workspace database (matched by name, scoped to this workspace):
+  - ANALYTICS_DB:
+      database: "analytics"
 ```
 
 Rules:
-- A variable maps to **either** a global variable **or** an OAuth connection — not both.
+- A global key, an `oauth:` name, and a `database:` name are **mutually exclusive**: bind each variable to exactly one.
 - OAuth connection names must be unique per tenant; they must match a connection configured in the UI (or auto-resolve when one is created later).
-- Workflow code accesses all three forms via `ctx.vars` in the `defineWorkflow` run body: `ctx.vars.GITHUB_TOKEN`, `ctx.vars.SHARED_API_KEY`, etc. Plain and global-mapped vars resolve as strings; OAuth-mapped vars resolve as a `ConnectionVar` (with `key`, `proxyUrl`, `proxyToken`).
+- Workspace database names are matched exactly, scoped to the project's own workspace — a same-named database in another workspace does not resolve.
+- A database-mapped variable's name additionally can't be `json` or `__solidactions_serializer` — reserved for the platform's internal variable serialization envelope, same treatment as the `SOLIDACTIONS_` prefix restriction.
+- Workflow code accesses all four forms via `ctx.vars` in the `defineWorkflow` run body: `ctx.vars.GITHUB_TOKEN`, `ctx.vars.SHARED_API_KEY`, etc. Plain and global-mapped vars resolve as strings; OAuth-mapped vars resolve as a `ConnectionVar` (with `key`, `proxyUrl`, `proxyToken`); database-mapped vars resolve as a `DatabaseVar` (`{ name, url, token, readOnly }`) — wrap it with the SDK's `createDatabaseClient()`. See `.solidactions/sdk-reference.md`'s **Workspace Databases** section for the full API.
+
+⚠️ **Every deploy syncs the complete `env:` declaration list.** Deleting a declaration — or emptying/removing the `env:` block entirely — prunes those YAML-sourced mappings on the next deploy. Only mappings that were never YAML-declared survive: overriding a YAML-declared variable (UI or `solidactions env set`) doesn't change its provenance, so removing its declaration still deletes the mapping.
 
 ### Setup block — installing CLI tools and language runtimes
 
