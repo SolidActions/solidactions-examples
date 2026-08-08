@@ -12,7 +12,7 @@ const realContractPath = path.join(root, 'content/placeholder-contract.json');
 test('loadContract accepts content/placeholder-contract.json', async () => {
   const contract = await loadContract(realContractPath);
   assert.equal(contract.schema_version, 1);
-  assert.equal(contract.placeholders.guidance_cli_version.public_value, '3.3');
+  assert.equal(contract.placeholders.guidance_cli_version.public_value, '3.6');
   assert.equal(contract.conditions.self_hosted.public_value, false);
 });
 

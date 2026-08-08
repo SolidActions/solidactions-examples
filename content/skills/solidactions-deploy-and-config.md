@@ -606,7 +606,7 @@ Only when you need a schedule **outside** the declarative YAML flow or an intent
 solidactions schedule set my-project "0 9 * * *" --workflow daily-report --timezone America/Chicago
 ```
 
-There is one schedule per workflow. If one already exists, `schedule set` updates it; it does not add a second schedule. As of CLI v3.3, schedule commands take no environment flag — run `solidactions schedule <subcommand> --help` to confirm on your version — so use the app when a project family has multiple environments and the target could be ambiguous.
+There is one schedule per workflow. If one already exists, `schedule set` updates it; it does not add a second schedule. As of CLI v3.6, every `schedule` subcommand takes `-e, --env <environment>`, so target a specific environment explicitly rather than relying on the default — run `solidactions schedule <subcommand> --help` to confirm on your version. (Before v3.6 these commands had no environment flag at all, which is why older guidance says to use the app when a project family has multiple environments.)
 
 The declarative YAML form uses an IANA timezone and defaults to UTC when it is omitted:
 
