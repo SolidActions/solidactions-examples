@@ -1,6 +1,6 @@
 ---
 name: solidactions-deploy-and-config
-description: Use when the user mentions deploying a SolidActions project, setting variables, configuring webhook triggers, scheduling workflows (cron), or debugging a workflow run. Encodes the CLI-only deploy rule, env-set discipline, webhook auth recipes, schedule setup, multi-env deploy defaults, and run debugging.
+description: Use when the user mentions deploying a SolidActions project, setting variables, managing databases, configuring webhook triggers, scheduling workflows (cron), or debugging a workflow run. Encodes the CLI-only deploy rule, env-set discipline, database lifecycle and local-replica safety, webhook auth recipes, schedule setup, multi-env deploy defaults, and run debugging.
 renderers: [skills]
 ---
 
@@ -457,6 +457,90 @@ solidactions env set my-project DATABASE_URL "postgres://prod-db/..." -s -e prod
 solidactions env set my-project DATABASE_URL "postgres://sandbox-db/..." -s -e dev
 # Staging still inherits from production.
 ```
+
+## Recipe — Databases
+
+Use the singular `database` group under `solidactions`. It manages databases
+in the active workspace selected by the normal CLI config and `-w` rules.
+
+### Discover and manage lifecycle
+
+```bash
+solidactions database list --json
+solidactions database create analytics
+solidactions database delete analytics --yes --json
+solidactions database undelete analytics
+```
+
+- Treat `delete` as a soft-delete, not immediate destruction. Its output shows
+  the purge clock; use `undelete` before that clock expires.
+- Use `list` to inspect each database's status and size plus workspace quota
+  usage.
+- Let interactive `delete` prompt. Pass `--yes` for automation, non-interactive
+  use, or JSON output. `create` and `undelete` do not need confirmation.
+- Use `--json` on `list`, lifecycle commands, `schema`, `query`, and `exec`
+  when another program will consume the result.
+
+### Inspect and change data
+
+```bash
+solidactions database schema analytics
+solidactions database query analytics "SELECT id, total FROM orders" --json
+solidactions database exec analytics "DELETE FROM jobs WHERE done = 1" --yes --json
+```
+
+Use `schema` to inspect tables, columns, and indexes, and use `query` for
+read-only SQL. Use `exec` for writes; keep its interactive confirmation, or pass
+`--yes` for automation, non-interactive use, and JSON output. SQL runs through a
+short-lived, scoped direct connection. The CLI keeps that access ephemeral in
+memory, renews it when a long foreground operation needs to continue, and
+writes no durable credential or credential sidecar.
+
+### Dump, import, and resume safely
+
+```bash
+solidactions database dump analytics backups/analytics.sql
+solidactions database import analytics backups/analytics.sql
+solidactions database import analytics backups/analytics.sql --resume <checkpoint> --yes
+solidactions database create restored --from backups/analytics.sql
+```
+
+- Let `dump` write `<safe-stem>.sql` in the current directory, or pass an
+  explicit destination. It writes through an owned temporary file, refuses
+  unsafe symlink/overwrite paths, and publishes only a complete dump. Pass
+  `--yes` only to approve replacing an existing destination.
+- Never import a dump containing `-- DOWNLOAD INCOMPLETE`. The CLI rejects that
+  marker and malformed or unsafe SQL before creating a database or requesting
+  direct access.
+- Let `import` prompt before changing an existing database; pass `--yes` for
+  automation. It commits complete statement batches and atomically records a
+  source-bound checkpoint under `.solidactions/imports/` after each batch.
+- After a partial failure, copy the exact printed resume command shown in the
+  preceding form. Do not run a plain import against the same checkpointed
+  source: resuming validates the source hash, size, database, and
+  completed-batch boundary and avoids replaying committed batches.
+- Use the `create --from` flow shown above to preflight SQL before provisioning
+  and then load it. If loading fails after creation, the database remains and
+  the CLI prints the safe resume command.
+
+### Pull a local replica
+
+```bash
+solidactions database pull analytics
+solidactions database pull analytics --writable
+```
+
+Default `pull` atomically publishes a read-only local replica at
+`.solidactions/databases/<safe-stem>.db` with no durable credential. Reuse this
+convention for local analytics, transformations, or other read-only consumers;
+pass the same explicit path when a tool needs a stable filename. Existing
+destinations prompt before replacement, and `--yes` approves that overwrite.
+
+Use `pull --writable` only when the user asks to modify live data. It opens a
+foreground SQL session and prints **writes go to the live workspace database**
+before accepting input. Writes forward while connected; there is no
+offline merge or background process after exit. On clean exit, the CLI closes
+the ephemeral connection and publishes the final standalone file read-only.
 
 ## Recipe — CLI Config & Workspace Switching
 

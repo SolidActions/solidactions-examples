@@ -27,6 +27,24 @@ solidactions run start hello-world hello-world -e production -i '{"name": "Alice
 credentials or OAuth connections. A successful run returns the greeting
 `HELLO, ALICE!` plus its recorded processing time and completed step names.
 
+## Database CLI
+
+Use `solidactions database` to manage workspace databases: `list`, `create`,
+`delete`, `undelete`, `schema`, `query`, `exec`, `dump`, `pull`, and `import`.
+Machine-readable operations support `--json` where applicable; destructive
+writes and overwrites prompt unless you pass `--yes`.
+
+`pull` creates a read-only local replica at
+`.solidactions/databases/<safe-stem>.db` by default. Reuse that path for local
+analytics tools. `pull --writable` instead opens a foreground SQL session whose
+writes go to the live workspace database; it does not create an offline-write
+file. Direct access is ephemeral, with no durable credential written locally.
+
+For portable data, use `dump`, load an existing SQL file with `import`, or
+create and load in one flow with `create --from`. Imports checkpoint completed
+batches; after a partial failure, run the exact command printed with
+`--resume <checkpoint>` rather than restarting and duplicating writes.
+
 ## Projects
 
 | Project | Description |
