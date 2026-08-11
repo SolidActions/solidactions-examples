@@ -63,8 +63,8 @@ export interface SyncStats {
   errors: number;
 }
 
-/** Pending sheet insert — matches fields needed for a new row */
-export interface PendingSheetInsert {
+/** Pending insert — the fields a brand-new row needs; timestamps are added on write */
+export interface PendingRecordInsert {
   primary_calendar: string;
   primary_event_id: string;
   secondary_calendar: string;
@@ -75,8 +75,8 @@ export interface PendingSheetInsert {
   event_signature: string;
 }
 
-/** Pending sheet update — full row data with row ID for in-place rewrite */
-export interface PendingSheetUpdate {
+/** Pending update — full row data, carrying the original created_at forward */
+export interface PendingRecordUpdate {
   rowId: number;
   primary_calendar: string;
   primary_event_id: string;
@@ -89,38 +89,21 @@ export interface PendingSheetUpdate {
   created_at: string;
 }
 
-/** Pending sheet delete — row ID for batch deletion */
-export interface PendingSheetDelete {
+/** Pending delete — row ID for batch deletion */
+export interface PendingRecordDelete {
   rowId: number;
 }
 
 /** Return type for refactored syncDirection() */
 export interface SyncDirectionResult {
   stats: SyncStats;
-  pendingInserts: PendingSheetInsert[];
-  pendingUpdates: PendingSheetUpdate[];
+  pendingInserts: PendingRecordInsert[];
+  pendingUpdates: PendingRecordUpdate[];
 }
 
 /** Return type for refactored detectAndDeleteOrphans() */
 export interface OrphanDetectionResult {
   deleted: number;
   errors: number;
-  pendingDeletes: PendingSheetDelete[];
-}
-
-/** Typed wrapper for all env vars with defaults */
-export interface EnvConfig {
-  googleOAuthToken: string;
-  calendarAId: string;
-  calendarBId: string;
-  calendarAPrefix: string;
-  calendarBPrefix: string;
-  maxEvents: number;
-  daysAhead: number;
-  telegramBotToken: string;
-  telegramChatId: string;
-  postgresHost: string;
-  postgresUser: string;
-  postgresPasswd: string;
-  postgresDb: string;
+  pendingDeletes: PendingRecordDelete[];
 }

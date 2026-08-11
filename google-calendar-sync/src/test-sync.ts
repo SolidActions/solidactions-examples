@@ -4,8 +4,8 @@
  * Trigger: webhook (response: wait, timeout: 300, auth: none).
  */
 
-import { SolidActions, defineWorkflow } from "@solidactions/sdk";
-import type { ConnectionVar } from "@solidactions/sdk";
+import { SolidActions, defineWorkflow, createDatabaseClient } from "@solidactions/sdk";
+import type { ConnectionVar, DatabaseClient, DatabaseVar } from "@solidactions/sdk";
 import {
   CalendarEventBody,
   createEvent,
@@ -14,7 +14,7 @@ import {
   getEvent,
   updateEvent,
 } from "./google-calendar.js";
-import { initSchema, loadSyncedEvents } from "./sheets.js";
+import { initSchema, loadSyncedEvents } from "./db.js";
 import type { SyncedEventRecord } from "./types.js";
 import { syncWorkflow, SyncOutput } from "./sync-core.js";
 import {
@@ -43,12 +43,11 @@ interface CreatedTestEvents {
 
 // --- Step Functions ---
 
-async function setupSheet(
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+async function setupDatabase(
+  db: DatabaseClient,
 ): Promise<{ baselineCount: number }> {
-  await initSchema(gsheet, spreadsheetId);
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  await initSchema(db);
+  const records = await loadSyncedEvents(db);
   return { baselineCount: records.length };
 }
 
@@ -124,24 +123,16 @@ async function triggerSync(): Promise<SyncOutput> {
   return result;
 }
 
-async function getSheetRecords(
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
-): Promise<SyncedEventRecord[]> {
-  return loadSyncedEvents(gsheet, spreadsheetId);
-}
-
 async function verifyCreates(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+  db: DatabaseClient,
   testEvents: CreatedTestEvents,
   calendarAId: string,
   calendarBId: string,
   calendarAPrefix: string,
   calendarBPrefix: string,
 ): Promise<TestResult[]> {
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  const records = await loadSyncedEvents(db);
   const results: TestResult[] = [];
 
   // Helper to find the synced copy for a primary event
@@ -156,16 +147,16 @@ async function verifyCreates(
     if (!record) {
       results.push({
         phase: "verify-creates",
-        test: `A->${ev.summary}: sheet record exists`,
+        test: `A->${ev.summary}: record exists`,
         status: "fail",
-        details: `No sheet record for ${ev.id}`,
+        details: `No record for ${ev.id}`,
       });
       continue;
     }
 
     results.push({
       phase: "verify-creates",
-      test: `A->${ev.summary}: sheet record exists`,
+      test: `A->${ev.summary}: record exists`,
       status: "pass",
     });
 
@@ -235,16 +226,16 @@ async function verifyCreates(
     if (!record) {
       results.push({
         phase: "verify-creates",
-        test: `B->${ev.summary}: sheet record exists`,
+        test: `B->${ev.summary}: record exists`,
         status: "fail",
-        details: `No sheet record for ${ev.id}`,
+        details: `No record for ${ev.id}`,
       });
       continue;
     }
 
     results.push({
       phase: "verify-creates",
-      test: `B->${ev.summary}: sheet record exists`,
+      test: `B->${ev.summary}: record exists`,
       status: "pass",
     });
 
@@ -429,14 +420,13 @@ async function updateTestEvents(
 
 async function verifyUpdates(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+  db: DatabaseClient,
   testEvents: CreatedTestEvents,
   calendarAId: string,
   calendarBId: string,
   ev8LastUpdatedBefore: string,
 ): Promise<TestResult[]> {
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  const records = await loadSyncedEvents(db);
   const results: TestResult[] = [];
 
   const findSecondary = (primaryId: string, primaryCal: string) =>
@@ -548,14 +538,13 @@ async function createDuplicateFilterEvents(
 
 async function verifyDuplicateFilter(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+  db: DatabaseClient,
   calendarAId: string,
   calendarBId: string,
   dupEventIds: { syncTagEventId: string; attendeeEventId: string },
 ): Promise<TestResult[]> {
   const results: TestResult[] = [];
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  const records = await loadSyncedEvents(db);
 
   // Check #1: sync-tagged event NOT synced
   const syncTagRecord = records.find(
@@ -564,7 +553,7 @@ async function verifyDuplicateFilter(
   if (!syncTagRecord) {
     results.push({ phase: "verify-duplicates", test: "dup-filter: sync-tag skipped", status: "pass" });
   } else {
-    results.push({ phase: "verify-duplicates", test: "dup-filter: sync-tag skipped", status: "fail", details: "Sheet record created for sync-tagged event" });
+    results.push({ phase: "verify-duplicates", test: "dup-filter: sync-tag skipped", status: "fail", details: "Record created for sync-tagged event" });
   }
 
   // Check #2: attendee-listed event NOT synced
@@ -574,7 +563,7 @@ async function verifyDuplicateFilter(
   if (!attendeeRecord) {
     results.push({ phase: "verify-duplicates", test: "dup-filter: attendee skipped", status: "pass" });
   } else {
-    results.push({ phase: "verify-duplicates", test: "dup-filter: attendee skipped", status: "fail", details: "Sheet record created for attendee-listed event" });
+    results.push({ phase: "verify-duplicates", test: "dup-filter: attendee skipped", status: "fail", details: "Record created for attendee-listed event" });
   }
 
   // Check that sync-tagged event did NOT appear on Calendar B as a sync copy
@@ -589,7 +578,7 @@ async function verifyDuplicateFilter(
 
   // Note: We don't assert "no B copy for attendee" because Google's invitation
   // system automatically creates the event on Calendar B when B is an attendee.
-  // The sheet record check above is the correct assertion — it proves the sync
+  // The record check above is the correct assertion — it proves the sync
   // code didn't create a duplicate. The Google-invited copy is expected behavior.
 
   return results;
@@ -618,8 +607,7 @@ async function deletePrimaryEvents(
 
 async function verifyOrphanCleanup(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+  db: DatabaseClient,
   deletedIds: Array<{ id: string; calendar: string }>,
   testEvents: CreatedTestEvents,
   calendarAId: string,
@@ -627,9 +615,9 @@ async function verifyOrphanCleanup(
   preDeleteRecords: SyncedEventRecord[],
 ): Promise<TestResult[]> {
   const results: TestResult[] = [];
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  const records = await loadSyncedEvents(db);
 
-  // Verify deleted primary events have sheet records removed
+  // Verify deleted primary events have records removed
   for (const { id, calendar } of deletedIds) {
     const record = records.find(
       (r) => r.primary_event_id === id && r.primary_calendar === calendar,
@@ -637,7 +625,7 @@ async function verifyOrphanCleanup(
     if (!record) {
       results.push({ phase: "verify-orphans", test: `orphan-cleanup: ${id} record removed`, status: "pass" });
     } else {
-      results.push({ phase: "verify-orphans", test: `orphan-cleanup: ${id} record removed`, status: "fail", details: "Sheet record still exists" });
+      results.push({ phase: "verify-orphans", test: `orphan-cleanup: ${id} record removed`, status: "fail", details: "Record still exists" });
     }
 
     // Verify secondary copy deleted from target calendar
@@ -703,8 +691,7 @@ async function createEdgeCaseEvents(
 
 async function verifyEdgeCaseResults(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+  db: DatabaseClient,
   calendarAId: string,
   calendarBId: string,
   calendarAPrefix: string,
@@ -714,7 +701,7 @@ async function verifyEdgeCaseResults(
   const edgeEventIds: string[] = [emptyEventId];
 
   // Verify synced copy has prefix with empty title
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  const records = await loadSyncedEvents(db);
   const emptyRecord = records.find(
     (r) => r.primary_event_id === emptyEventId && r.primary_calendar === calendarAId,
   );
@@ -731,7 +718,7 @@ async function verifyEdgeCaseResults(
       results.push({ phase: "edge-cases", test: "empty summary: synced copy", status: "fail", details: (error as Error).message });
     }
   } else {
-    results.push({ phase: "edge-cases", test: "empty summary: synced", status: "fail", details: "No sheet record" });
+    results.push({ phase: "edge-cases", test: "empty summary: synced", status: "fail", details: "No record" });
   }
 
   // Edge case 2: deleteEvent 410 handling - try deleting already-deleted event
@@ -752,13 +739,12 @@ async function verifyEdgeCaseResults(
 
 async function cleanupAllTestEvents(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
+  db: DatabaseClient,
   calendarAId: string,
   calendarBId: string,
   testEvents: CreatedTestEvents,
   dupEventIds: { syncTagEventId: string; attendeeEventId: string },
   edgeEventIds: string[],
-  spreadsheetId: string,
 ): Promise<void> {
   // Cleanup Calendar A events
   const allCalAIds = [
@@ -787,7 +773,7 @@ async function cleanupAllTestEvents(
   }
 
   // Cleanup any synced copies still on both calendars
-  const records = await loadSyncedEvents(gsheet, spreadsheetId);
+  const records = await loadSyncedEvents(db);
   const testEventIdSet = new Set([...allCalAIds, ...allCalBIds]);
 
   for (const record of records) {
@@ -805,8 +791,7 @@ async function cleanupAllTestEvents(
 
 async function testSyncWorkflowFn(
   gcal: ConnectionVar,
-  gsheet: ConnectionVar,
-  spreadsheetId: string,
+  db: DatabaseClient,
   calendarAId: string,
   calendarBId: string,
   calendarAPrefix: string,
@@ -827,8 +812,8 @@ async function testSyncWorkflowFn(
 
   // Phase 1 — Setup
   const { baselineCount } = await SolidActions.runStep(
-    () => setupSheet(gsheet, spreadsheetId),
-    { name: "setup-sheet" },
+    () => setupDatabase(db),
+    { name: "setup-database" },
   );
   SolidActions.logger.info(`Setup complete. Baseline records: ${baselineCount}`);
 
@@ -849,7 +834,7 @@ async function testSyncWorkflowFn(
   const createResults = await SolidActions.runStep(
     () =>
       verifyCreates(
-        gcal, gsheet, spreadsheetId, testEvents,
+        gcal, db, testEvents,
         calendarAId, calendarBId, calendarAPrefix, calendarBPrefix,
       ),
     { name: "verify-creates" },
@@ -859,7 +844,7 @@ async function testSyncWorkflowFn(
 
   // Phase 4 — Record ev8 last_updated before update
   const preUpdateRecords = await SolidActions.runStep(
-    () => getSheetRecords(gsheet, spreadsheetId),
+    () => loadSyncedEvents(db),
     { name: "load-pre-update-records" },
   );
   const ev8PreRecord = preUpdateRecords.find(
@@ -882,7 +867,7 @@ async function testSyncWorkflowFn(
   const updateResults = await SolidActions.runStep(
     () =>
       verifyUpdates(
-        gcal, gsheet, spreadsheetId, testEvents,
+        gcal, db, testEvents,
         calendarAId, calendarBId, ev8LastUpdatedBefore,
       ),
     { name: "verify-updates" },
@@ -904,7 +889,7 @@ async function testSyncWorkflowFn(
   const dupResults = await SolidActions.runStep(
     () =>
       verifyDuplicateFilter(
-        gcal, gsheet, spreadsheetId,
+        gcal, db,
         calendarAId, calendarBId, dupEventIds,
       ),
     { name: "verify-duplicate-filter" },
@@ -914,7 +899,7 @@ async function testSyncWorkflowFn(
 
   // Phase 7 — Record pre-delete state
   const preDeleteRecords = await SolidActions.runStep(
-    () => getSheetRecords(gsheet, spreadsheetId),
+    () => loadSyncedEvents(db),
     { name: "load-pre-delete-records" },
   );
 
@@ -932,7 +917,7 @@ async function testSyncWorkflowFn(
   const orphanResults = await SolidActions.runStep(
     () =>
       verifyOrphanCleanup(
-        gcal, gsheet, spreadsheetId, deletedIds,
+        gcal, db, deletedIds,
         testEvents, calendarAId, calendarBId, preDeleteRecords,
       ),
     { name: "verify-orphan-cleanup" },
@@ -951,7 +936,7 @@ async function testSyncWorkflowFn(
   const { results: edgeCaseResults, edgeEventIds } = await SolidActions.runStep(
     () =>
       verifyEdgeCaseResults(
-        gcal, gsheet, spreadsheetId,
+        gcal, db,
         calendarAId, calendarBId, calendarAPrefix, emptyEventId,
       ),
     { name: "verify-edge-cases" },
@@ -963,10 +948,9 @@ async function testSyncWorkflowFn(
   await SolidActions.runStep(
     () =>
       cleanupAllTestEvents(
-        gcal, gsheet,
+        gcal, db,
         calendarAId, calendarBId,
         testEvents, dupEventIds, edgeEventIds,
-        spreadsheetId,
       ),
     { name: "cleanup-test-events" },
   );
@@ -995,19 +979,23 @@ export const handle = defineWorkflow<void, TestReport>({
   name: "test-sync",
   run: (ctx) => {
     const gcal = ctx.vars.GCAL as ConnectionVar;
-    const gsheet = ctx.vars.GSHEET as ConnectionVar;
+    const syncDb = ctx.vars.SYNC_DB as DatabaseVar;
 
     if (typeof gcal !== "object" || !gcal.proxyUrl) {
       throw new Error("Missing or invalid GCAL connection variable");
     }
-    if (typeof gsheet !== "object" || !gsheet.proxyUrl) {
-      throw new Error("Missing or invalid GSHEET connection variable");
+    if (typeof syncDb !== "object" || !syncDb.url) {
+      throw new Error("Missing or invalid SYNC_DB database variable");
+    }
+    if (syncDb.readOnly) {
+      throw new Error(
+        `Database "${syncDb.name}" is read-only (workspace write fuse tripped); the test suite needs writes`,
+      );
     }
 
     return testSyncWorkflowFn(
       gcal,
-      gsheet,
-      ctx.vars.SPREADSHEET_ID as string,
+      createDatabaseClient(syncDb),
       ctx.vars.CALENDAR_A_ID as string,
       ctx.vars.CALENDAR_B_ID as string,
       (ctx.vars.CALENDAR_A_PREFIX as string | undefined) ?? "[A]",

@@ -20,7 +20,7 @@ calendars you care about.
 - Deletes the mirror and its tracking row when a tracked source event no longer
   appears in the fetched source set.
 - Stores the source/mirror IDs, event signature, timestamps, and direction in a
-  Google Sheet tab named `synced_events`.
+  SolidActions workspace database, in a table named `synced_events`.
 - Skips events already marked `🔄 SYNCED FROM:` and events that invite the
   target calendar, preventing the normal mirror from bouncing back again.
 - Runs every 15 minutes from `solidactions.yaml`, with the same sync available
@@ -36,11 +36,17 @@ rendered into the mirror description; the mirror is not a shared Google event.
 
 - Node.js 24 or newer, the SolidActions CLI, and a SolidActions workspace/API
   key.
+- `@solidactions/sdk` 0.8.0 or newer. Workspace-database support — the
+  `createDatabaseClient()` helper and the `DatabaseVar` shape on `ctx.vars` —
+  landed in 0.8.0; on 0.7.x the binding arrives as a raw JSON string and this
+  example will not build.
+- A CLI key with database access. `solidactions database ...` fails with
+  `does not have the 'databases:read' ability` until you re-authenticate with
+  `solidactions login --device`.
 - Permission to create workflow Connections and configure project Variables.
 - One Google Calendar authorization that can read and modify both calendars.
-- One Google Sheets authorization that can modify a spreadsheet you choose.
-- Two calendar IDs and a blank Google Sheet. Use disposable calendars for the
-  first verification because deletion propagation is part of the example.
+- Two calendar IDs. Use disposable calendars for the first verification because
+  deletion propagation is part of the example.
 
 Authenticate once if needed:
 
@@ -58,7 +64,6 @@ cd google-calendar-sync
 npm install
 
 # Required workspace Variables. Create them before deploy so the YAML mappings resolve.
-solidactions env set SPREADSHEET_ID "your-spreadsheet-id" --global
 solidactions env set CALENDAR_A_ID "calendar-a@example.com" --global
 solidactions env set CALENDAR_B_ID "calendar-b@example.com" --global
 
@@ -69,7 +74,6 @@ solidactions env set MAX_EVENTS "2500" --global
 solidactions env set DAYS_AHEAD "180" --global
 ```
 
-`SPREADSHEET_ID` is the ID between `/d/` and `/edit` in a Google Sheets URL.
 Calendar IDs are available in each calendar's Google Calendar integration
 settings.
 
@@ -83,11 +87,17 @@ solidactions env set TELEGRAM_CHAT_ID "your-chat-id" --global
 If either Telegram value is absent, the workflow logs errors without sending a
 Telegram message.
 
-### 2. Create and bind the OAuth Connections
+### 2. Create the database and bind the OAuth Connection
 
-1. In SolidActions, open **Automate → Connections**.
-2. Add a Google Calendar Connection whose account can access both calendar IDs.
-3. Add a Google Sheets Connection whose account can edit the tracking sheet.
+1. Create the workspace database that holds sync state. Its name must match the
+   `database:` name declared for `SYNC_DB` in `solidactions.yaml`:
+
+   ```bash
+   solidactions database create calendar-sync
+   ```
+
+2. In SolidActions, open **Automate → Connections**.
+3. Add a Google Calendar Connection whose account can access both calendar IDs.
 4. Create the empty project so its Variables can be configured before its
    15-minute schedule is deployed:
 
@@ -96,16 +106,20 @@ Telegram message.
    ```
 
 5. Open the production project → **Variables**. Add `GCAL` and map it to the
-   Google Calendar OAuth Connection. Add `GSHEET` and map it to the Google
-   Sheets OAuth Connection.
+   Google Calendar OAuth Connection.
 
-The checked-in YAML uses same-name scalar mappings for `GCAL` and `GSHEET`, but
-the TypeScript requires `ConnectionVar` objects. Do not create string workspace
-Variables with those names; the explicit project OAuth mappings are required.
-The runtime uses the SolidActions OAuth proxy, so provider access and refresh
-tokens do not belong in `.env` or source control.
+`SYNC_DB` needs no manual step: deploy resolves the declared `database:` name
+against this workspace and binds it. The name is matched exactly and scoped to
+the project's own workspace, and an unresolved name does not fail the deploy —
+it lands as "not configured" with a warning, so check `env list` afterwards.
 
-### 3. Deploy and initialize the tracking sheet
+The checked-in YAML uses a same-name scalar mapping for `GCAL`, but the
+TypeScript requires a `ConnectionVar` object. Do not create a string workspace
+Variable with that name; the explicit project OAuth mapping is required. The
+runtime uses the SolidActions OAuth proxy, so provider access and refresh tokens
+do not belong in `.env` or source control.
+
+### 3. Deploy and initialize the schema
 
 ```bash
 npm run build
@@ -114,8 +128,8 @@ solidactions env list google-calendar-sync -e production
 solidactions run start google-calendar-sync init-database -e production --wait
 ```
 
-The initialization workflow is idempotent. It creates the `synced_events` tab
-(or renames a lone blank `Sheet1`), writes its 11-column header, and returns a
+The initialization workflow is idempotent. It creates the `synced_events` table
+and its unique index on `(primary_calendar, primary_event_id)`, then returns a
 result shaped like:
 
 ```json
@@ -123,9 +137,16 @@ result shaped like:
 ```
 
 Deployment also creates and enables the `*/15 * * * *` schedule. A scheduled
-run that lands before the OAuth mappings or sheet initialization is complete
+run that lands before the OAuth mapping or schema initialization is complete
 will fail; finish these setup steps and verify an on-demand run before relying
 on the schedule.
+
+Inspect the stored state at any time with the CLI:
+
+```bash
+solidactions database query calendar-sync "SELECT COUNT(*) FROM synced_events"
+solidactions database schema calendar-sync
+```
 
 ## Run it on demand
 
@@ -192,10 +213,11 @@ calendars before running it.
   not as actual attendees/resources.
 - **There is no cross-run lock or transaction.** Overlapping scheduled and
   manual runs can both observe an event before its tracking row is written and
-  create duplicate mirrors. Avoid concurrent runs.
-- **Operations are only partially atomic.** Calendar writes and Google Sheet
-  batch writes happen in separate durable steps. A partial API failure can
-  leave the calendars and tracking sheet out of sync; the summary reports
+  create duplicate mirrors. Avoid concurrent runs. The unique index makes a
+  *retried* write idempotent; it does not serialize two concurrent runs.
+- **Operations are only partially atomic.** Calendar writes and database writes
+  happen in separate durable steps. A partial API failure can leave the
+  calendars and the tracking table out of sync; the summary reports
   per-direction errors but does not roll back successful calls.
 - **The scheduled cron is UTC unless changed by the platform.** It runs every
   15 minutes, so the timezone does not affect its frequency.

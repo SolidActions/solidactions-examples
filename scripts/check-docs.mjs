@@ -36,7 +36,7 @@ for (const directory of projectDirs) {
   const packageJson = JSON.parse(await readFile(path.join(root, directory, 'package.json'), 'utf8'));
   const packageLock = JSON.parse(await readFile(path.join(root, directory, 'package-lock.json'), 'utf8'));
   assert.equal(packageJson.engines?.node, '>=24', `${directory}/package.json must require Node.js 24`);
-  assert.equal(packageJson.dependencies?.['@solidactions/sdk'], '^0.7.3', `${directory}/package.json must use the current SDK line`);
+  assert.equal(packageJson.dependencies?.['@solidactions/sdk'], '^0.8.0', `${directory}/package.json must use the current SDK line`);
   assert.equal(packageLock.packages?.['']?.engines?.node, '>=24', `${directory}/package-lock.json must require Node.js 24`);
 }
 
@@ -62,14 +62,17 @@ for (const sourceBackedClaim of [
   'sync-google-calendars-webhook',
   'init-database',
   'GCAL',
-  'GSHEET',
+  'SYNC_DB',
+  'solidactions database create',
   'TELEGRAM_BOT_TOKEN',
   'Deletion is inferred from the fetched window',
 ]) {
   assert(calendarReadme.includes(sourceBackedClaim), `Google Calendar guide is missing: ${sourceBackedClaim}`);
 }
 assert(!calendarReadme.toLowerCase().includes('coming soon'), 'Google Calendar guide must not be a placeholder');
-assert(calendarEnvExample.includes('GCAL and GSHEET are OAuth Connection mappings'), 'Google Calendar env guidance must explain Connection mappings');
+assert(calendarEnvExample.includes('GCAL is an OAuth Connection mapping'), 'Google Calendar env guidance must explain the Connection mapping');
+assert(calendarEnvExample.includes('SYNC_DB is a workspace-database'), 'Google Calendar env guidance must explain the database mapping');
+assert(!calendarEnvExample.includes('SPREADSHEET_ID'), 'Google Calendar env guidance must not reference the retired Sheets backend');
 assert(!calendarEnvExample.includes('GCAL_OAUTH_TOKEN'), 'Google Calendar env guidance must not suggest raw provider tokens');
 assert(!calendarEnvExample.includes('SOLIDACTIONS_API_KEY='), 'Google Calendar env guidance must not store a CLI key in the project');
 const obsoletePatterns = [

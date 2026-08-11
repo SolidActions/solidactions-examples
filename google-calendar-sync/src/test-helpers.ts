@@ -3,13 +3,13 @@
  * for the integration test workflow.
  */
 
-import type { ConnectionVar } from "@solidactions/sdk";
+import type { ConnectionVar, DatabaseClient } from "@solidactions/sdk";
 import {
   CalendarEventBody,
   deleteEvent,
   getEvent,
 } from "./google-calendar.js";
-import { loadSyncedEvents } from "./sheets.js";
+import { loadSyncedEvents } from "./db.js";
 
 // --- Types ---
 
@@ -208,15 +208,14 @@ export function assertDescriptionContains(
   };
 }
 
-/** Verify a sheet record exists for a primary event. */
-export async function assertSheetRecordExists(
-  conn: ConnectionVar,
-  spreadsheetId: string,
+/** Verify a database record exists for a primary event. */
+export async function assertSyncRecordExists(
+  db: DatabaseClient,
   primaryEventId: string,
   primaryCalendar: string,
   testName: string,
 ): Promise<TestResult> {
-  const records = await loadSyncedEvents(conn, spreadsheetId);
+  const records = await loadSyncedEvents(db);
   const found = records.find(
     (r) =>
       r.primary_event_id === primaryEventId &&
@@ -229,19 +228,18 @@ export async function assertSheetRecordExists(
     phase: "verify",
     test: testName,
     status: "fail",
-    details: `No sheet record for ${primaryEventId} on ${primaryCalendar}`,
+    details: `No record for ${primaryEventId} on ${primaryCalendar}`,
   };
 }
 
-/** Verify a sheet record does NOT exist for a primary event. */
-export async function assertSheetRecordMissing(
-  conn: ConnectionVar,
-  spreadsheetId: string,
+/** Verify a database record does NOT exist for a primary event. */
+export async function assertSyncRecordMissing(
+  db: DatabaseClient,
   primaryEventId: string,
   primaryCalendar: string,
   testName: string,
 ): Promise<TestResult> {
-  const records = await loadSyncedEvents(conn, spreadsheetId);
+  const records = await loadSyncedEvents(db);
   const found = records.find(
     (r) =>
       r.primary_event_id === primaryEventId &&
@@ -254,12 +252,12 @@ export async function assertSheetRecordMissing(
     phase: "verify",
     test: testName,
     status: "fail",
-    details: `Sheet record still exists for ${primaryEventId}`,
+    details: `Record still exists for ${primaryEventId}`,
   };
 }
 
-/** Verify that no new sheet records were created between before and after counts. */
-export function assertNoNewSheetRecords(
+/** Verify that no new records were created between before and after counts. */
+export function assertNoNewSyncRecords(
   before: number,
   after: number,
   testName: string,
@@ -271,7 +269,7 @@ export function assertNoNewSheetRecords(
     phase: "verify",
     test: testName,
     status: "fail",
-    details: `Sheet records grew from ${before} to ${after}`,
+    details: `Records grew from ${before} to ${after}`,
   };
 }
 
