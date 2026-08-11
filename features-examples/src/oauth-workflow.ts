@@ -26,7 +26,7 @@
  * expect a raw access token, which workflow code never sees.
  */
 
-import { SolidActions, defineWorkflow, type ConnectionVar } from '@solidactions/sdk';
+import { SolidActions, defineWorkflow, type ConnectionVar, type VarValue } from '@solidactions/sdk';
 
 interface OAuthWorkflowInput {
   // Reserved for future use (e.g., choosing a different action). Currently the
@@ -96,10 +96,13 @@ async function callGetUser(conn: ConnectionVar): Promise<{
   }
 }
 
-async function oauthWorkflow(_input: OAuthWorkflowInput, github: ConnectionVar | string | undefined): Promise<OAuthWorkflowResult> {
+async function oauthWorkflow(_input: OAuthWorkflowInput, github: VarValue | undefined): Promise<OAuthWorkflowResult> {
   // ctx.vars.GITHUB is a ConnectionVar when the project var is mapped to an OAuth
-  // connection in the UI; guard the string/undefined fallback so we never deref a non-object.
-  const conn = typeof github === 'object' && github !== null ? github : undefined;
+  // connection in the UI. A var can also arrive as a plain string or, when bound to
+  // a workspace database, as a DatabaseVar — test for `proxyUrl` rather than just
+  // object-ness so only a real connection gets through.
+  const conn: ConnectionVar | undefined =
+    typeof github === 'object' && github !== null && 'proxyUrl' in github ? github : undefined;
   const connectionFound = await SolidActions.runStep(
     () => Promise.resolve(Boolean(conn)),
     { name: 'check-connection' },

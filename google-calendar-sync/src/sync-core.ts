@@ -5,17 +5,17 @@
  * workflow (invoked via startWorkflow() from test-sync.ts).
  */
 
-import { SolidActions, defineWorkflow } from "@solidactions/sdk";
-import type { ConnectionVar } from "@solidactions/sdk";
+import { SolidActions, defineWorkflow, createDatabaseClient } from "@solidactions/sdk";
+import type { ConnectionVar, DatabaseClient, DatabaseVar } from "@solidactions/sdk";
 import type {
   GoogleCalendarEvent,
   SyncedEventRecord,
   SyncStats,
   SyncDirectionResult,
   OrphanDetectionResult,
-  PendingSheetInsert,
-  PendingSheetUpdate,
-  PendingSheetDelete,
+  PendingRecordInsert,
+  PendingRecordUpdate,
+  PendingRecordDelete,
 } from "./types.js";
 import {
   fetchEvents,
@@ -25,11 +25,10 @@ import {
 } from "./google-calendar.js";
 import {
   loadSyncedEvents,
-  batchInsertSyncedEvents,
-  batchUpdateSyncedEvents,
-  batchDeleteSyncedEventRows,
-  getSheetId,
-} from "./sheets.js";
+  insertSyncedEvents,
+  updateSyncedEvents,
+  deleteSyncedEventRows,
+} from "./db.js";
 import {
   computeSignature,
   analyzeEvents,
@@ -45,7 +44,7 @@ export interface SyncOutput {
   deletionStats: { deleted: number; errors: number };
   eventsA: number;
   eventsB: number;
-  sheetRecords: number;
+  syncedRecords: number;
 }
 
 // --- Helpers ---
@@ -97,8 +96,8 @@ async function syncDirection(
   );
 
   const stats: SyncStats = { created: 0, updated: 0, deleted: 0, errors: 0 };
-  const pendingInserts: PendingSheetInsert[] = [];
-  const pendingUpdates: PendingSheetUpdate[] = [];
+  const pendingInserts: PendingRecordInsert[] = [];
+  const pendingUpdates: PendingRecordUpdate[] = [];
 
   // Process creates with concurrency
   const createResults = await processInBatches(
@@ -181,7 +180,7 @@ async function detectAndDeleteOrphans(
 ): Promise<OrphanDetectionResult> {
   let deleted = 0;
   let errors = 0;
-  const pendingDeletes: PendingSheetDelete[] = [];
+  const pendingDeletes: PendingRecordDelete[] = [];
 
   // Build sets of current event IDs per calendar
   const calAEventIds = new Set(eventsA.map((e) => e.id));
@@ -233,7 +232,6 @@ async function detectAndDeleteOrphans(
 // --- Workflow Function ---
 
 async function syncGoogleCalendarsWorkflow(ctx: {
-  spreadsheetId: string;
   calendarAId: string;
   calendarBId: string;
   calendarAPrefix: string;
@@ -243,10 +241,9 @@ async function syncGoogleCalendarsWorkflow(ctx: {
   telegramBotToken: string;
   telegramChatId: string;
   gcal: ConnectionVar;
-  gsheet: ConnectionVar;
+  db: DatabaseClient;
 }): Promise<SyncOutput> {
   const {
-    spreadsheetId,
     calendarAId,
     calendarBId,
     calendarAPrefix,
@@ -256,7 +253,7 @@ async function syncGoogleCalendarsWorkflow(ctx: {
     telegramBotToken,
     telegramChatId,
     gcal,
-    gsheet,
+    db,
   } = ctx;
 
   try {
@@ -296,15 +293,19 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       `Fetched ${eventsA.length} events from A, ${eventsB.length} from B`,
     );
 
-    // Step 2: Load synced records from sheet (single load for entire workflow)
+    // Step 2: Load synced records from the database (single load for entire workflow)
     const syncedRecords = await SolidActions.runStep(
-      () => loadSyncedEvents(gsheet, spreadsheetId),
+      () => loadSyncedEvents(db),
       { name: "load-synced-records" },
     );
 
     SolidActions.logger.info(`Loaded ${syncedRecords.length} synced records`);
 
-    // Step 3: Sync A -> B (Calendar API ops only, deferred Sheet writes)
+    // Timestamp for every row written by this run. Taken from SolidActions.now()
+    // so a replay reuses the original value rather than drifting.
+    const writtenAt = new Date(await SolidActions.now()).toISOString();
+
+    // Step 3: Sync A -> B (Calendar API ops only, deferred database writes)
     const aToBResult = await SolidActions.runStep(
       () =>
         syncDirection(
@@ -318,11 +319,11 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       { name: "sync-a-to-b" },
     );
 
-    // Step 4: Batch write A->B Sheet changes
+    // Step 4: Batch write A->B database changes
     await SolidActions.runStep(
       async () => {
-        await batchInsertSyncedEvents(gsheet, spreadsheetId, aToBResult.pendingInserts);
-        await batchUpdateSyncedEvents(gsheet, spreadsheetId, aToBResult.pendingUpdates);
+        await insertSyncedEvents(db, aToBResult.pendingInserts, writtenAt);
+        await updateSyncedEvents(db, aToBResult.pendingUpdates, writtenAt);
       },
       { name: "batch-write-a-to-b" },
     );
@@ -341,11 +342,11 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       { name: "sync-b-to-a" },
     );
 
-    // Step 6: Batch write B->A Sheet changes
+    // Step 6: Batch write B->A database changes
     await SolidActions.runStep(
       async () => {
-        await batchInsertSyncedEvents(gsheet, spreadsheetId, bToAResult.pendingInserts);
-        await batchUpdateSyncedEvents(gsheet, spreadsheetId, bToAResult.pendingUpdates);
+        await insertSyncedEvents(db, bToAResult.pendingInserts, writtenAt);
+        await updateSyncedEvents(db, bToAResult.pendingUpdates, writtenAt);
       },
       { name: "batch-write-b-to-a" },
     );
@@ -364,17 +365,13 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       { name: "detect-and-delete-orphans" },
     );
 
-    // Step 8: Batch delete orphan rows from Sheet
+    // Step 8: Batch delete orphan rows from the database
     await SolidActions.runStep(
-      async () => {
-        const sheetId = await getSheetId(gsheet, spreadsheetId);
-        await batchDeleteSyncedEventRows(
-          gsheet,
-          spreadsheetId,
-          sheetId,
+      () =>
+        deleteSyncedEventRows(
+          db,
           orphanResult.pendingDeletes.map((d) => d.rowId),
-        );
-      },
+        ),
       { name: "batch-delete-orphan-rows" },
     );
 
@@ -389,7 +386,7 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       deletionStats,
       eventsA: eventsA.length,
       eventsB: eventsB.length,
-      sheetRecords: syncedRecords.length,
+      syncedRecords: syncedRecords.length,
     };
 
     await SolidActions.runStep(
@@ -451,17 +448,21 @@ export const syncWorkflow = defineWorkflow<void, SyncOutput>({
   name: "sync-core",
   run: (ctx) => {
     const gcal = ctx.vars.GCAL as ConnectionVar;
-    const gsheet = ctx.vars.GSHEET as ConnectionVar;
+    const syncDb = ctx.vars.SYNC_DB as DatabaseVar;
 
     if (typeof gcal !== "object" || !gcal.proxyUrl) {
       throw new Error("Missing or invalid GCAL connection variable");
     }
-    if (typeof gsheet !== "object" || !gsheet.proxyUrl) {
-      throw new Error("Missing or invalid GSHEET connection variable");
+    if (typeof syncDb !== "object" || !syncDb.url) {
+      throw new Error("Missing or invalid SYNC_DB database variable");
+    }
+    if (syncDb.readOnly) {
+      throw new Error(
+        `Database "${syncDb.name}" is read-only (workspace write fuse tripped); sync would silently drop state`,
+      );
     }
 
     return syncGoogleCalendarsWorkflow({
-      spreadsheetId: ctx.vars.SPREADSHEET_ID as string,
       calendarAId: ctx.vars.CALENDAR_A_ID as string,
       calendarBId: ctx.vars.CALENDAR_B_ID as string,
       calendarAPrefix: (ctx.vars.CALENDAR_A_PREFIX as string | undefined) ?? "[A]",
@@ -471,7 +472,7 @@ export const syncWorkflow = defineWorkflow<void, SyncOutput>({
       telegramBotToken: (ctx.vars.TELEGRAM_BOT_TOKEN as string | undefined) ?? "",
       telegramChatId: (ctx.vars.TELEGRAM_CHAT_ID as string | undefined) ?? "",
       gcal,
-      gsheet,
+      db: createDatabaseClient(syncDb),
     });
   },
 });

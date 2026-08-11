@@ -2,8 +2,10 @@ project: google-calendar-sync
 
 env:
   - GCAL: GCAL
-  - GSHEET: GSHEET
-  - SPREADSHEET_ID: SPREADSHEET_ID
+  # Sync state lives in a workspace database. The name must match a database in
+  # this project's own workspace; create it with `solidactions database create`.
+  - SYNC_DB:
+      database: "calendar-sync"
   - CALENDAR_A_ID: CALENDAR_A_ID
   - CALENDAR_B_ID: CALENDAR_B_ID
   - CALENDAR_A_PREFIX: CALENDAR_A_PREFIX
@@ -39,7 +41,7 @@ workflows:
 
   - id: init-database
     name: Initialize Database
-    description: Create synced_events sheet with headers (idempotent)
+    description: Create the synced_events table and index (idempotent)
     file: src/init-database.ts
     trigger: webhook
 

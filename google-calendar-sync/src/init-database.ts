@@ -1,12 +1,12 @@
 /**
- * Spreadsheet initialization workflow.
- * Creates the synced_events sheet with headers. Idempotent.
+ * Database initialization workflow.
+ * Creates the synced_events table and its natural-key index. Idempotent.
  * Trigger: webhook (runnable from SolidActions UI).
  */
 
-import { SolidActions, defineWorkflow } from "@solidactions/sdk";
-import type { ConnectionVar } from "@solidactions/sdk";
-import { initSchema, loadSyncedEvents } from "./sheets.js";
+import { SolidActions, defineWorkflow, createDatabaseClient } from "@solidactions/sdk";
+import type { DatabaseClient, DatabaseVar } from "@solidactions/sdk";
+import { initSchema, loadSyncedEvents } from "./db.js";
 
 // --- Types ---
 
@@ -18,18 +18,16 @@ interface InitOutput {
 
 // --- Workflow Function ---
 
-async function initDatabaseWorkflow(spreadsheetId: string, gsheet: ConnectionVar): Promise<InitOutput> {
-  SolidActions.logger.info("Starting spreadsheet initialization");
+async function initDatabaseWorkflow(db: DatabaseClient): Promise<InitOutput> {
+  SolidActions.logger.info("Starting database initialization");
 
-  // Step 1: Create sheet and headers
-  await SolidActions.runStep(() => initSchema(gsheet, spreadsheetId), {
-    name: "init-schema",
-  });
+  // Step 1: Create table and index
+  await SolidActions.runStep(() => initSchema(db), { name: "init-schema" });
   SolidActions.logger.info("Schema created successfully");
 
-  // Step 2: Verify sheet exists
+  // Step 2: Verify the table is readable
   const rowCount = await SolidActions.runStep(
-    async () => (await loadSyncedEvents(gsheet, spreadsheetId)).length,
+    async () => (await loadSyncedEvents(db)).length,
     { name: "verify-schema" },
   );
   SolidActions.logger.info(`Verification complete: ${rowCount} existing rows`);
@@ -42,14 +40,18 @@ async function initDatabaseWorkflow(spreadsheetId: string, gsheet: ConnectionVar
 export const handle = defineWorkflow<void, InitOutput>({
   name: "init-database",
   run: (ctx) => {
-    const gsheet = ctx.vars.GSHEET as ConnectionVar;
+    const syncDb = ctx.vars.SYNC_DB as DatabaseVar;
 
-    if (typeof gsheet !== "object" || !gsheet.proxyUrl) {
-      throw new Error("Missing or invalid GSHEET connection variable");
+    if (typeof syncDb !== "object" || !syncDb.url) {
+      throw new Error("Missing or invalid SYNC_DB database variable");
     }
 
-    const spreadsheetId = ctx.vars.SPREADSHEET_ID as string;
+    if (syncDb.readOnly) {
+      throw new Error(
+        `Database "${syncDb.name}" is read-only (workspace write fuse tripped); cannot create the schema`,
+      );
+    }
 
-    return initDatabaseWorkflow(spreadsheetId, gsheet);
+    return initDatabaseWorkflow(createDatabaseClient(syncDb));
   },
 });
