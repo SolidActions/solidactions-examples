@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readmePath = path.join(root, 'README.md');
+const guidePath = path.join(root, 'content/guide/deploy.md');
 const skillPath = path.join(root, 'content/skills/solidactions-deploy-and-config.md');
 const verbs = ['list', 'create', 'delete', 'undelete', 'schema', 'query', 'exec', 'dump', 'pull', 'import'];
 
@@ -43,6 +44,26 @@ test('the canonical deploy skill covers the complete vendor-neutral database CLI
   assert.match(guidance, /\.solidactions\/databases\/<safe-stem>\.db/);
   assert.match(guidance, /reuse/i);
   assert.doesNotMatch(guidance, /turso|libsql/i);
+});
+
+test('workspace database guidance requires SDK 0.8.0 and the typed DatabaseVar', async () => {
+  const guide = await readFile(guidePath, 'utf8');
+  const skill = await readFile(skillPath, 'utf8');
+  const guideGuidance = section(guide, '### Workspace databases');
+  const skillGuidance = section(skill, '### Variable declaration forms');
+
+  for (const [name, guidance] of [
+    ['canonical deploy guide', guideGuidance],
+    ['canonical deploy skill', skillGuidance],
+  ]) {
+    assert.match(guidance, /@solidactions\/sdk[^\n]*0\.8\.0/i, `${name} must require SDK 0.8.0+`);
+    assert.match(guidance, /read_only[^\n]*readOnly/i, `${name} must explain wire normalization`);
+    assert.match(guidance, /typed[^\n]*object/i, `${name} must direct workflows to the typed SDK object`);
+  }
+
+  assert.match(guideGuidance, /solidactions database create <name>/);
+  assert.match(guideGuidance, /web UI/i);
+  assert.doesNotMatch(guideGuidance, /there is no CLI command/i);
 });
 
 test('the root README gives a concise database CLI entry point and safety model', async () => {

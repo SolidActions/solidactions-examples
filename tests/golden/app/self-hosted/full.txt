@@ -155,8 +155,8 @@ rely on seeing that error: through CLI v3.6.0 the YAML parser keeps only the fir
 form it recognizes — `oauth:` beats `database:` — so a declaration carrying both
 deploys silently as the wrong binding instead of failing. Declare exactly one.
 Resolution is exact-name and workspace-scoped — a same-named
-database in another workspace never resolves. Databases are created in the **web
-UI**; there is no CLI command for them.
+database in another workspace never resolves. Create the database with
+`solidactions database create <name>` or in the **web UI**.
 
 An unresolved name doesn't fail the deploy: the mapping is stored as "not
 configured" with a warning, and a later deploy applies the resolved database only
@@ -165,7 +165,11 @@ your binding alone (same behavior as `oauth:`).
 
 Workflow code reads the binding as `ctx.vars.<NAME>` — a `DatabaseVar`
 (`{ name, url, token, readOnly }`), not a plain connection string. Wrap it with the
-SDK's `createDatabaseClient()` rather than reading the fields directly.
+SDK's `createDatabaseClient()` rather than reading the fields directly. Workspace
+database bindings require `@solidactions/sdk >=0.8.0`. The private transport payload
+uses `read_only`; SDK 0.8.0+ normalizes it to `DatabaseVar.readOnly`, so workflow code
+should use the typed `DatabaseVar` object instead of parsing the transport string.
+See the SDK reference's Workspace Databases section for the full API.
 
 **A database-bound variable cannot be named `json` or `__solidactions_serializer`**
 — those collide with the platform's SuperJSON control members, on top of the

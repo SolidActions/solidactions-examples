@@ -21,6 +21,12 @@ with the same procedure and re-run the parity test.
   sections, which had landed in the app after the original extraction and were missing
   here — the delta was verified to be **append-only** (no line of the b158922 capture was
   modified or removed).
+- **`deploy` re-captured again at:** `75788f7abc22e69e79496bf9562fe0d84662fc28`
+  (`solidactions-app`, worktree `__worktrees/issues/github-1201`), which added the
+  `@solidactions/sdk >=0.8.0` boundary, documented `read_only` to `readOnly`
+  normalization, and replaced the stale web-UI-only database-creation claim with the
+  CLI and UI paths (app #1201). Only `deploy` was captured; each `full` golden was
+  rebuilt from its five topic files as described below.
 - **`full` is not a fresh capture.** It is assembled from the five topic goldens joined by
   `_order.yaml`'s separator, exactly as `app-parity.test.mjs` assembles it. Rebuilding it
   that way rather than re-capturing from the app keeps the four untouched topics pinned at
