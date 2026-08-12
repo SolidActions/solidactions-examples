@@ -324,6 +324,10 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       async () => {
         await insertSyncedEvents(db, aToBResult.pendingInserts, writtenAt);
         await updateSyncedEvents(db, aToBResult.pendingUpdates, writtenAt);
+        return {
+          inserted: aToBResult.pendingInserts.length,
+          updated: aToBResult.pendingUpdates.length,
+        };
       },
       { name: "batch-write-a-to-b" },
     );
@@ -347,6 +351,10 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       async () => {
         await insertSyncedEvents(db, bToAResult.pendingInserts, writtenAt);
         await updateSyncedEvents(db, bToAResult.pendingUpdates, writtenAt);
+        return {
+          inserted: bToAResult.pendingInserts.length,
+          updated: bToAResult.pendingUpdates.length,
+        };
       },
       { name: "batch-write-b-to-a" },
     );
@@ -367,11 +375,11 @@ async function syncGoogleCalendarsWorkflow(ctx: {
 
     // Step 8: Batch delete orphan rows from the database
     await SolidActions.runStep(
-      () =>
-        deleteSyncedEventRows(
-          db,
-          orphanResult.pendingDeletes.map((d) => d.rowId),
-        ),
+      async () => {
+        const rowIds = orphanResult.pendingDeletes.map((d) => d.rowId);
+        await deleteSyncedEventRows(db, rowIds);
+        return { deletedRows: rowIds.length };
+      },
       { name: "batch-delete-orphan-rows" },
     );
 
