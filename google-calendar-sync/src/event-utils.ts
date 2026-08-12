@@ -8,6 +8,7 @@ import type {
   SyncedEventRecord,
   SyncAnalysis,
   EventDateTime,
+  CalendarFetchState,
 } from "./types.js";
 
 const SYNC_TAG = "🔄 SYNCED FROM:";
@@ -133,6 +134,36 @@ export function buildSyncedEventBody(
   }
 
   return body;
+}
+
+/**
+ * Find synced records whose primary event no longer exists on its calendar.
+ *
+ * A record is only ever considered an orphan when its primary calendar was
+ * fetched successfully. If the fetch failed (`events: null`) we have no evidence
+ * about that calendar, so its records are left alone — otherwise a transient API
+ * error would look like "every event was deleted" and wipe real events.
+ */
+export function findOrphanRecords(
+  syncedRecords: SyncedEventRecord[],
+  calendars: CalendarFetchState[],
+): SyncedEventRecord[] {
+  const eventIdsByCalendar = new Map<string, Set<string>>();
+  for (const calendar of calendars) {
+    if (!calendar.events) continue;
+    eventIdsByCalendar.set(
+      calendar.id,
+      new Set(calendar.events.map((event) => event.id)),
+    );
+  }
+
+  return syncedRecords.filter((record) => {
+    const eventIds = eventIdsByCalendar.get(record.primary_calendar);
+    // No entry means the calendar is unfetched or no longer configured — either
+    // way we cannot prove the event is gone, so the record is not an orphan.
+    if (!eventIds) return false;
+    return !eventIds.has(record.primary_event_id);
+  });
 }
 
 /**

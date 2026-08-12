@@ -13,6 +13,7 @@ import type {
   SyncStats,
   SyncDirectionResult,
   OrphanDetectionResult,
+  CalendarFetchState,
   PendingRecordInsert,
   PendingRecordUpdate,
   PendingRecordDelete,
@@ -33,6 +34,7 @@ import {
   computeSignature,
   analyzeEvents,
   buildSyncedEventBody,
+  findOrphanRecords,
 } from "./event-utils.js";
 import { sendTelegramError } from "./telegram.js";
 
@@ -172,36 +174,15 @@ async function syncDirection(
 
 async function detectAndDeleteOrphans(
   gcal: ConnectionVar,
-  eventsA: GoogleCalendarEvent[],
-  eventsB: GoogleCalendarEvent[],
+  calendars: CalendarFetchState[],
   syncedRecords: SyncedEventRecord[],
-  calendarAId: string,
-  calendarBId: string,
 ): Promise<OrphanDetectionResult> {
   let deleted = 0;
   let errors = 0;
   const pendingDeletes: PendingRecordDelete[] = [];
 
-  // Build sets of current event IDs per calendar
-  const calAEventIds = new Set(eventsA.map((e) => e.id));
-  const calBEventIds = new Set(eventsB.map((e) => e.id));
-
-  // Identify orphans
-  const orphans = syncedRecords.filter((record) => {
-    if (
-      record.primary_calendar === calendarAId &&
-      !calAEventIds.has(record.primary_event_id)
-    ) {
-      return true;
-    }
-    if (
-      record.primary_calendar === calendarBId &&
-      !calBEventIds.has(record.primary_event_id)
-    ) {
-      return true;
-    }
-    return false;
-  });
+  // Records on a calendar we failed to fetch are never treated as orphans.
+  const orphans = findOrphanRecords(syncedRecords, calendars);
 
   // Batch Calendar deletes with concurrency
   const deleteResults = await processInBatches(
@@ -273,10 +254,21 @@ async function syncGoogleCalendarsWorkflow(ctx: {
       ),
     ]);
 
-    const eventsA =
-      fetchAResult.status === "fulfilled" ? fetchAResult.value : [];
-    const eventsB =
-      fetchBResult.status === "fulfilled" ? fetchBResult.value : [];
+    // null (not []) when a fetch failed — see CalendarFetchState. Orphan
+    // detection depends on the distinction; the sync directions do not.
+    const calendars: CalendarFetchState[] = [
+      {
+        id: calendarAId,
+        events: fetchAResult.status === "fulfilled" ? fetchAResult.value : null,
+      },
+      {
+        id: calendarBId,
+        events: fetchBResult.status === "fulfilled" ? fetchBResult.value : null,
+      },
+    ];
+
+    const eventsA = calendars[0].events ?? [];
+    const eventsB = calendars[1].events ?? [];
 
     if (fetchAResult.status === "rejected") {
       SolidActions.logger.error(
@@ -286,6 +278,14 @@ async function syncGoogleCalendarsWorkflow(ctx: {
     if (fetchBResult.status === "rejected") {
       SolidActions.logger.error(
         `Failed to fetch Calendar B events: ${fetchBResult.reason}`,
+      );
+    }
+
+    const unfetched = calendars.filter((c) => !c.events).map((c) => c.id);
+    if (unfetched.length > 0) {
+      SolidActions.logger.warn(
+        `Skipping orphan detection for ${unfetched.join(", ")} — fetch failed, ` +
+        `so their tracked events cannot be confirmed deleted`,
       );
     }
 
@@ -361,15 +361,7 @@ async function syncGoogleCalendarsWorkflow(ctx: {
 
     // Step 7: Detect and delete orphans (Calendar API ops only)
     const orphanResult = await SolidActions.runStep(
-      () =>
-        detectAndDeleteOrphans(
-          gcal,
-          eventsA,
-          eventsB,
-          syncedRecords,
-          calendarAId,
-          calendarBId,
-        ),
+      () => detectAndDeleteOrphans(gcal, calendars, syncedRecords),
       { name: "detect-and-delete-orphans" },
     );
 
