@@ -102,6 +102,16 @@ export interface SyncDirectionResult {
 }
 
 /** Return type for refactored detectAndDeleteOrphans() */
+/**
+ * A calendar's fetch outcome for one sync run. `events` is null when the fetch
+ * failed, which is deliberately distinct from an empty array: an empty calendar
+ * means every tracked record is an orphan, a failed fetch means we know nothing.
+ */
+export interface CalendarFetchState {
+  id: string;
+  events: GoogleCalendarEvent[] | null;
+}
+
 export interface OrphanDetectionResult {
   deleted: number;
   errors: number;
