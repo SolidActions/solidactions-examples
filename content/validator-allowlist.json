@@ -1,5 +1,10 @@
 [
   {
+    "file": "content/guide/deploy.md",
+    "span": "solidactions database create <name>",
+    "reason": "#1201 documents database creation while the pinned CLI v3.6.0 manifest predates the database command group."
+  },
+  {
     "file": "content/skills/solidactions-deploy-and-config.md",
     "span": "solidactions database list --json",
     "reason": "#1146 documents the database group pending its first released CLI command manifest."
