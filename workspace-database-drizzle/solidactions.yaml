@@ -1,0 +1,24 @@
+project: workspace-database-drizzle
+
+env:
+  # Map a workspace database to the APP_DB variable. Change "orders" to the name
+  # of a database in YOUR workspace (`solidactions database list` shows them;
+  # `solidactions database create orders` makes one).
+  #
+  # This one declaration is the whole wiring. After `solidactions project deploy`, the
+  # platform mints a credential for APP_DB on every dispatch, and
+  # `solidactions dev <file> --env <env>` resolves the same credential locally.
+  # Nothing is ever written to a .env file.
+  - APP_DB:
+      database: "orders"
+
+workflows:
+  - id: record-order
+    name: Record Order (Drizzle insert + select)
+    file: src/record-order.ts
+    trigger: webhook
+
+  - id: migrate
+    name: Apply Drizzle Migrations
+    file: src/migrate.ts
+    trigger: webhook
