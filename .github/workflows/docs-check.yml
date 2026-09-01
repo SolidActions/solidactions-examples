@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [templates/minimal, hello-world, features-examples, google-calendar-sync, setup-block-tools]
+        project: [templates/minimal, hello-world, features-examples, google-calendar-sync, setup-block-tools, workspace-database-drizzle]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6

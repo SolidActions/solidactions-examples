@@ -11,7 +11,7 @@ const skillNames = [
   'solidactions-oauth-actions',
   'solidactions-crew-skills',
 ];
-const projectDirs = ['templates/minimal', 'hello-world', 'features-examples', 'google-calendar-sync', 'setup-block-tools'];
+const projectDirs = ['templates/minimal', 'hello-world', 'features-examples', 'google-calendar-sync', 'setup-block-tools', 'workspace-database-drizzle'];
 
 const skillFiles = (await readdir(path.join(root, 'content/skills')))
   .filter((file) => file.startsWith('solidactions-') && file.endsWith('.md'))
@@ -47,6 +47,7 @@ const documentationFiles = [
   'google-calendar-sync/README.md',
   'hello-world/README.md',
   'setup-block-tools/README.md',
+  'workspace-database-drizzle/README.md',
   ...skillNames.map((skillName) => `content/skills/${skillName}.md`),
 ];
 const rootReadme = await readFile(path.join(root, 'README.md'), 'utf8');

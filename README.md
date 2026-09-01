@@ -53,6 +53,7 @@ batches; after a partial failure, run the exact command printed with
 | [features-examples/](./features-examples/) | 15 workflows demonstrating SDK features: steps, sleep, signals, child workflows, retries, events, messaging, parallel execution, scheduling, OAuth, streaming, and webhooks |
 | [setup-block-tools/](./setup-block-tools/) | Installing CLI tools and language runtimes (ffmpeg, dbt, python3) into your workflow sandbox via the `setup:` block in `solidactions.yaml` |
 | [google-calendar-sync/](./google-calendar-sync/) | Keep two calendars from hiding conflicts: mirror creates and source-side updates in both directions, remove orphaned mirror events, and track every pair in a SolidActions workspace database on a 15-minute schedule or on demand |
+| [workspace-database-drizzle/](./workspace-database-drizzle/) | Using a workspace database from Drizzle ORM — connect through `ctx.vars`, and apply drizzle-kit migrations with `solidactions dev --env` (no credentials on your machine) |
 
 ## Development Lifecycle
 

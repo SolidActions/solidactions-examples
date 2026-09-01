@@ -393,11 +393,13 @@ solidactions env pull my-project -y               # skip secret-confirmation pro
 
 ### Local testing with `solidactions dev`
 
-`solidactions dev <file>` runs a workflow locally against an **in-memory mock** — no deploy, no sandbox. It never reads a local `.env`, and it never reads or leaks the host `process.env`; the only source of `ctx.vars` is what the platform resolves for you.
+`solidactions dev <file>` runs a workflow locally — no deploy, no sandbox. The **in-memory mock** is the *durable-primitive backend* (steps, sleeps, signals); it is not a mock of your data. Anything `ctx.vars` points at is real: OAuth calls go to the real provider, and a mapped workspace database is the **real remote database**. `dev` never reads a local `.env`, and never reads or leaks the host `process.env`; the only source of `ctx.vars` is what the platform resolves for you.
 
-- **With `-e <env>`:** `dev` fetches the **resolved non-secret variables + OAuth connections** for that environment from the platform (same source as `env pull`) and exposes them on `ctx.vars`. Secret *values* are not sent — a secret-mapped var shows up as unavailable in `dev`.
+- **With `-e <env>`:** `dev` fetches the **resolved non-secret variables + OAuth connections + mapped workspace databases** for that environment from the platform and exposes them on `ctx.vars`. Secret *values* are not sent — a secret-mapped var shows up as unavailable in `dev`.
+- **Mapped databases DO work under `dev -e`.** For each `database:`-mapped variable the CLI mints a short-lived credential and puts a `DatabaseVar` (`{name, url, token, readOnly}`) on `ctx.vars` — the same object a deployed run gets, so `createDatabaseClient(ctx.vars.MYDB)`, `@libsql/client` and Drizzle all work locally. The credential is held in memory for that run and is never written to a file, which is why `env pull` writes an explanatory comment where the variable would be instead of a value. The summary line names them: `Loaded 2 vars + 1 connections from my-project / env production + 1 database`.
 - **Without `-e`:** `ctx.vars` starts **empty** — nothing is fetched.
 - **To exercise a workflow that needs a secret locally:** set a test value in your dev environment, then run `dev -e dev` against it — or skip the platform entirely and pass ad-hoc values as workflow input with `-i`.
+- **To register a mapping without shipping code:** `solidactions project deploy <project> <path> --config-only` syncs the YAML `env:` declarations only — no build, no deploy. This is what you want before a first `dev -e` run: `dev` needs the mapping registered, not your code uploaded.
 
 ```bash
 # Option A: set a real test value in your dev environment, then fetch it:

@@ -1,0 +1,24 @@
+{
+  "name": "solidactions-workspace-database-drizzle",
+  "version": "1.0.0",
+  "description": "Use a SolidActions workspace database from Drizzle ORM, locally and deployed",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "solidactions dev src/migrate.ts --env production"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@solidactions/sdk": "^0.8.0",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "drizzle-kit": "^0.31.0",
+    "typescript": "^5.0.0"
+  }
+}
