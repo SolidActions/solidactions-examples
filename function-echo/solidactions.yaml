@@ -1,0 +1,10 @@
+project: function-echo
+
+functions:
+  - id: echo
+    name: Echo
+    file: functions/echo.ts
+    description: Answers with the JSON it was sent.
+    webhook: true
+    webhook_auth: hmac
+    timeout: 10

@@ -5,6 +5,7 @@ SolidActions workflow project. AI skills are installed in `.agents/skills/` and 
 - `solidactions-deploy-and-config` — deploying, variables, triggers, debugging runs
 - `solidactions-oauth-actions` — calling OAuth-backed provider APIs via the SA proxy
 - `solidactions-crew-skills` — running/editing crew skill scripts via the CLI (`skill exec --target`, `skill dev`)
+- `solidactions-functions` — fast functions: one-file webhook, app-page button and MCP tool handlers; when to pick a function over a workflow
 
 Full SDK reference: `.solidactions/sdk-reference.md`. Read before using any SDK function you do not know cold.
 
