@@ -60,6 +60,25 @@ env:
 | `internal` | Spawned by other workflows via `SolidActions.startWorkflow()`. Internal workflows are defined with `defineWorkflow` and exported — they are not declared as entry points in `solidactions.yaml`. |
 | `schedule` | Cron-triggered. Requires a `schedule:` field with `cron` and optional `timezone`, `input`, and `enabled`. |
 
+### Functions
+
+A fast function is one TypeScript file that answers an HTTP call. List it under `functions:` in `solidactions.yaml`:
+
+```yaml
+project: function-echo
+
+functions:
+  - id: echo
+    name: Echo
+    file: functions/echo.ts
+    description: Answers with the JSON it was sent.
+    webhook: true
+    webhook_auth: hmac
+    timeout: 10
+```
+
+`file:` is the TypeScript source path, as for workflows. A project may hold `functions:` with no `workflows:`; it then needs no `package.json`. Deploy it with the path written out: `solidactions project deploy <project> <path> -e production`, never `<project>` alone. The deploy prints `function <id>: live <url>`. See the `solidactions-functions` skill.
+
 ### Webhook config options
 
 ```yaml

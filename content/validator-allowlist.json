@@ -68,5 +68,10 @@
     "file": "content/skills/solidactions-deploy-and-config.md",
     "span": "solidactions database pull analytics --writable",
     "reason": "#1146 documents the database group pending its first released CLI command manifest."
+  },
+  {
+    "file": "content/skills/solidactions-getting-started.md",
+    "span": "solidactions app preview <app> [--page <id>]",
+    "reason": "cli#249 documents app preview (CLI v3.36.0) while the pinned CLI v3.6.0 manifest predates the app command group."
   }
 ]
