@@ -77,7 +77,41 @@ functions:
     timeout: 10
 ```
 
-`file:` is the TypeScript source path, as for workflows. A project may hold `functions:` with no `workflows:`; it then needs no `package.json`. Deploy it with the path written out: `solidactions project deploy <project> <path> -e production`, never `<project>` alone. The deploy prints `function <id>: live <url>`. See the `solidactions-functions` skill.
+`file:` is the TypeScript source path, as for workflows. A project may hold `functions:` with no `workflows:`; it then needs no `package.json`. Deploy it with the path written out: `solidactions project deploy <project> <path> -e production`, never `<project>` alone. See the `solidactions-functions` skill.
+
+The deploy prints one line per function. `function <id>: live` is printed for a new or changed function, followed by its URL when the function has `webhook: true` and the server returned one. A redeploy of the same source prints `function <id>: unchanged` (with the URL when the function has a webhook). A function without a webhook prints no URL. An error prints `function <id>: error <code>: <message>`. A function you removed from the yaml prints `function <id>: retired`. A code function can set `confirm_text` (CLI 3.38 or newer); see the `solidactions-functions` skill.
+
+### Pages
+
+App pages in code: list them under `pages:` in `solidactions.yaml`. Each entry has an `id` (lowercase letters, digits and `-`, starting with a letter or digit, at most 63 characters), a `name`, a `file` ending in `.html` or `.tsx` (at most 1 MB), and an optional `home: true` (at most one page per project).
+
+```yaml
+project: greeter
+
+pages:
+  - id: greeting
+    name: Greeting
+    file: pages/greeting.html
+    home: true
+```
+
+```html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Greeting</title>
+  </head>
+  <body>
+    <h1>Hello from SolidActions</h1>
+    <p>This page was deployed from code.</p>
+  </body>
+</html>
+```
+
+Deploy it to dev with the path written out: `solidactions project deploy greeter ./ -e dev`. The deploy prints `page <id>: live`, followed by the app page link when the server returns one; that link is what a person opens. To try it yourself first, see the preview rule in `solidactions-getting-started`.
+
+A `.tsx` page works the same way, with `file: pages/<id>.tsx`. It must export its component as the default export, and the CLI bundles it before upload; import the platform modules (`react`, `react-dom`, `recharts`, `@tanstack/react-table`, `sa`, `@solidactions/sa`) by name only: the platform provides them, and a subpath such as `react/jsx-runtime` is refused. Your own files and installed packages are bundled in. A page you remove from the list goes to Docs trash on the next deploy, and a page made in the app is never touched by a deploy.
 
 ### Webhook config options
 
@@ -354,6 +388,19 @@ solidactions project deploy my-project ./ -e staging --create
 # ❌ Error on a new project (CLI will refuse — no env chosen):
 solidactions project deploy my-project ./
 ```
+
+### Source of truth
+
+- **Every app records whether `git` or `solidactions` owns its source** (Settings, "Source of truth"). Apps whose source of truth is SolidActions never warn or refuse.
+- **When the source of truth is git, a deploy made from a sandbox is refused with `source_of_truth_git`.** Deploys from your laptop or CI are never refused.
+- **`--override-source-of-truth` deploys from the sandbox anyway.** The CLI sends it on every call the deploy makes (functions, config, pages, app settings and the source archive). The deploy is stored and the app shows as drifted until you mark it reconciled in the app's settings or flip its source of truth to SolidActions.
+- **Ask the person before using `--override-source-of-truth`: it leaves the app drifted.**
+
+```bash
+solidactions project deploy <project> <path> -e dev --override-source-of-truth
+```
+
+While an app is drifted, every deploy prints `Warning: this app is drifted: deployed outside git since <date>. Mark it reconciled in the app's settings, or flip its source of truth to SolidActions.`
 
 ### What gets bundled — ignore rules
 

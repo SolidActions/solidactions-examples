@@ -1,8 +1,8 @@
 SolidActions workflow project. AI skills are installed in `.claude/skills/` and auto-activate when relevant:
 
-- `solidactions-getting-started` — new-project scaffolding and bootstrap discipline
+- `solidactions-getting-started` — new-project scaffolding and bootstrap discipline, the preview rule
 - `solidactions-workflow-coding` — editing TS workflow code (SDK rules, determinism, recipes)
-- `solidactions-deploy-and-config` — deploying, variables, triggers, debugging runs
+- `solidactions-deploy-and-config` — deploying, variables, triggers, debugging runs, app pages (`pages:`), source of truth
 - `solidactions-oauth-actions` — calling OAuth-backed provider APIs via the SA proxy
 - `solidactions-crew-skills` — running/editing crew skill scripts via the CLI (`skill exec --target`, `skill dev`)
 - `solidactions-functions` — fast functions: one-file webhook, app-page button and MCP tool handlers; when to pick a function over a workflow
