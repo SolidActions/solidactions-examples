@@ -81,6 +81,21 @@ assert(!calendarEnvExample.includes('SOLIDACTIONS_API_KEY='), 'Google Calendar e
 
 const functionsSkill = await readFile(path.join(root, 'content/skills/solidactions-functions.md'), 'utf8');
 assert(functionsSkill.includes('Use a function for a quick answer; use a workflow for a long, durable, many-step job.'), 'solidactions-functions must open with the function-versus-workflow rule');
+for (const required of [
+  '{ after: true }',
+  'statement N',
+  'confirm_text',
+  'A code entry needs no `owner` key',
+]) {
+  assert(functionsSkill.includes(required), `solidactions-functions is missing: ${required}`);
+}
+const gettingStartedSkill = await readFile(path.join(root, 'content/skills/solidactions-getting-started.md'), 'utf8');
+for (const required of [
+  'CLI 3.36 or newer',
+  'stop and ask the person before any production deploy',
+]) {
+  assert(gettingStartedSkill.includes(required), `solidactions-getting-started is missing: ${required}`);
+}
 const echoYaml = await readFile(path.join(root, 'function-echo/solidactions.yaml'), 'utf8');
 assert(/^functions:\n  - id: echo$/m.test(echoYaml), 'function-echo must declare the echo function');
 await readFile(path.join(root, 'function-echo/functions/echo.ts'), 'utf8');
