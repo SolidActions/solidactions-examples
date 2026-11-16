@@ -4,10 +4,10 @@ A fast function: one file that answers an HTTP call in about a second, with no w
 
 ## Deploy
 
-From the directory that holds `function-echo/` (the folder `solidactions ai examples function-echo` creates):
+`solidactions ai examples function-echo` installs this example to `.solidactions/examples/function-echo/`. From the project folder that holds `.solidactions/`:
 
 ```bash
-solidactions project deploy function-echo ./function-echo -e production
+solidactions project deploy function-echo ./.solidactions/examples/function-echo -e production
 ```
 
 The CLI prints `function echo: live <url>`.
