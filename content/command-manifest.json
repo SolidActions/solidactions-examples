@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "cli_name": "solidactions",
-  "cli_version": "3.6.0",
+  "cli_version": "3.37.0",
   "global_options": [
     {
       "flags": "-V, --version",
@@ -19,7 +19,7 @@
       "flags": "-w, --workspace-override <id-or-slug-or-name>",
       "long": "--workspace-override",
       "short": "-w",
-      "description": "Override active workspace for this command (short form: -w)",
+      "description": "Override active workspace for this command (short form: -w; also skips the CWD-inference prompt)",
       "required": false,
       "value_required": true,
       "value_optional": false,
@@ -366,6 +366,1269 @@
     },
     {
       "path": [
+        "database"
+      ],
+      "name": "database",
+      "aliases": [],
+      "description": "Manage workspace databases",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "list"
+      ],
+      "name": "list",
+      "aliases": [],
+      "description": "List workspace databases",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "--kind <kind>",
+          "long": "--kind",
+          "short": null,
+          "description": "Filter by kind: libsql, duckdb or duckdb_file",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "create"
+      ],
+      "name": "create",
+      "aliases": [],
+      "description": "Create a workspace database",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--kind <kind>",
+          "long": "--kind",
+          "short": null,
+          "description": "Database kind: libsql (default), duckdb or duckdb_file (a DuckDB database file that workflows open, change and publish)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "libsql"
+        },
+        {
+          "flags": "--from <file.sql>",
+          "long": "--from",
+          "short": null,
+          "description": "Import a SQL file after creation",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--no-wait",
+          "long": "--no-wait",
+          "short": null,
+          "description": "Do not wait for analytical (duckdb) provisioning to finish",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "show"
+      ],
+      "name": "show",
+      "aliases": [],
+      "description": "Show database details",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "delete"
+      ],
+      "name": "delete",
+      "aliases": [],
+      "description": "Delete a workspace database",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "undelete"
+      ],
+      "name": "undelete",
+      "aliases": [],
+      "description": "Restore a deleted workspace database",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "schema"
+      ],
+      "name": "schema",
+      "aliases": [],
+      "description": "Show a database schema",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "query"
+      ],
+      "name": "query",
+      "aliases": [],
+      "description": "Run a read-only SQL query",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "sql",
+          "required": true,
+          "variadic": false,
+          "description": "SQL query"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--limit <n>",
+          "long": "--limit",
+          "short": null,
+          "description": "Row cap for analytical queries (max 10000)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "exec"
+      ],
+      "name": "exec",
+      "aliases": [],
+      "description": "Execute a SQL statement",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "sql",
+          "required": true,
+          "variadic": false,
+          "description": "SQL statement"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "dump"
+      ],
+      "name": "dump",
+      "aliases": [],
+      "description": "Download a database SQL dump",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "file",
+          "required": false,
+          "variadic": false,
+          "description": "Destination file"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Overwrite without confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "pull"
+      ],
+      "name": "pull",
+      "aliases": [],
+      "description": "Pull a database into a local file",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "path",
+          "required": false,
+          "variadic": false,
+          "description": "Destination path"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Overwrite without confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--writable",
+          "long": "--writable",
+          "short": null,
+          "description": "Open a foreground writable session",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--version <n>",
+          "long": "--version",
+          "short": null,
+          "description": "DuckDB databases: pull this published version instead of the latest",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "versions"
+      ],
+      "name": "versions",
+      "aliases": [],
+      "description": "List the published versions of a DuckDB database, newest first",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--limit <n>",
+          "long": "--limit",
+          "short": null,
+          "description": "How many versions to list (1-200)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "rollback"
+      ],
+      "name": "rollback",
+      "aliases": [],
+      "description": "Make an earlier published version of a DuckDB database the current one",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "version",
+          "required": true,
+          "variadic": false,
+          "description": "Version number to roll back to"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "import"
+      ],
+      "name": "import",
+      "aliases": [],
+      "description": "Import a SQL file into a database",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "file.sql",
+          "required": true,
+          "variadic": false,
+          "description": "SQL file"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--resume <checkpoint>",
+          "long": "--resume",
+          "short": null,
+          "description": "Resume from a validated import checkpoint",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "push"
+      ],
+      "name": "push",
+      "aliases": [],
+      "description": "Replace from a private WAL/4096-byte/auto-vacuum NONE snapshot; source file is unchanged; countable rows exclude internal, virtual, and shadow tables",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "database",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "file.db",
+          "required": true,
+          "variadic": false,
+          "description": "Complete SQLite database file"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Acknowledge destructive replacement",
+          "required": true,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--allow-empty",
+          "long": "--allow-empty",
+          "short": null,
+          "description": "Allow a database with zero countable rows",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--idempotency-key <uuid>",
+          "long": "--idempotency-key",
+          "short": null,
+          "description": "Reuse a bulk-load operation UUID",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "ingest"
+      ],
+      "name": "ingest",
+      "aliases": [],
+      "description": "Load a batch of rows into an analytical database",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "file",
+          "required": true,
+          "variadic": false,
+          "description": "Parquet, CSV, or JSONL file to load"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--table <table>",
+          "long": "--table",
+          "short": null,
+          "description": "Target table name",
+          "required": true,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--mode <mode>",
+          "long": "--mode",
+          "short": null,
+          "description": "append (default) or replace",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "append"
+        },
+        {
+          "flags": "--batch-id <id>",
+          "long": "--batch-id",
+          "short": null,
+          "description": "Idempotency key (default: derived from the file, table, and mode)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "export"
+      ],
+      "name": "export",
+      "aliases": [],
+      "description": "Export an analytical database snapshot as Parquet files and a manifest",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--table <table>",
+          "long": "--table",
+          "short": null,
+          "description": "Export one table (repeatable)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": []
+        },
+        {
+          "flags": "--output <directory>",
+          "long": "--output",
+          "short": null,
+          "description": "Destination directory",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--no-wait",
+          "long": "--no-wait",
+          "short": null,
+          "description": "Print the accepted export id without waiting or downloading",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
+        },
+        {
+          "flags": "--resume <export-id>",
+          "long": "--resume",
+          "short": null,
+          "description": "Resume an existing authorized export",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--replace",
+          "long": "--replace",
+          "short": null,
+          "description": "Replace a non-reusable ready export without prompting",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "drop-table"
+      ],
+      "name": "drop-table",
+      "aliases": [],
+      "description": "Delete one table from an analytical database and free its space",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        },
+        {
+          "name": "table",
+          "required": true,
+          "variadic": false,
+          "description": "Table name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "-y, --yes",
+          "long": "--yes",
+          "short": "-y",
+          "description": "Skip confirmation",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "optimize"
+      ],
+      "name": "optimize",
+      "aliases": [],
+      "description": "Consolidate an analytical database's stored files now",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--wait",
+          "long": "--wait",
+          "short": null,
+          "description": "Wait for optimize to finish and print files before/after",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "connect"
+      ],
+      "name": "connect",
+      "aliases": [],
+      "description": "Show how to connect to an analytical database",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "wake"
+      ],
+      "name": "wake",
+      "aliases": [],
+      "description": "Wake an idle analytical database and wait for it to become active",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Database name"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "database",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
         "project"
       ],
       "name": "project",
@@ -418,6 +1681,18 @@
           "negated": false,
           "hidden": false,
           "default": "dev"
+        },
+        {
+          "flags": "--json",
+          "long": "--json",
+          "short": null,
+          "description": "Output as JSON",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
         },
         {
           "flags": "-h, --help",
@@ -542,6 +1817,18 @@
           "long": "--paused",
           "short": null,
           "description": "Deploy with all YAML-declared schedules initially paused",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--override-source-of-truth",
+          "long": "--override-source-of-truth",
+          "short": null,
+          "description": "Deploy from a sandbox even though the app's source of truth is git; the app shows as drifted until you mark it reconciled or flip its source of truth to SolidActions",
           "required": false,
           "value_required": false,
           "value_optional": false,
@@ -1326,7 +2613,7 @@
           "name": "run-id",
           "required": true,
           "variadic": false,
-          "description": "Run ID"
+          "description": "Run ID (numeric id or run UUID)"
         }
       ],
       "options": [
@@ -2165,6 +3452,51 @@
           "negated": false,
           "hidden": false
         },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "crew",
+        "env",
+        "map-database"
+      ],
+      "name": "map-database",
+      "aliases": [],
+      "description": "Map a workspace database into crew sandboxes",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "crew",
+          "required": true,
+          "variadic": false,
+          "description": "Crew name or id"
+        },
+        {
+          "name": "key",
+          "required": true,
+          "variadic": false,
+          "description": "Variable key"
+        },
+        {
+          "name": "database",
+          "required": true,
+          "variadic": false,
+          "description": "Workspace database name or id"
+        }
+      ],
+      "options": [
         {
           "flags": "-h, --help",
           "long": "--help",
@@ -3409,6 +4741,207 @@
     {
       "path": [
         "connection",
+        "connect"
+      ],
+      "name": "connect",
+      "aliases": [],
+      "description": "Mint a connect link a person clicks to connect an app, then print it and the wait command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "platform",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--name <name>",
+          "long": "--name",
+          "short": null,
+          "description": "Name of the new connection",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--reconnect <name>",
+          "long": "--reconnect",
+          "short": null,
+          "description": "Refresh an existing connection instead (its platform is looked up when omitted)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--bind <project:var>",
+          "long": "--bind",
+          "short": null,
+          "description": "Bind a project variable to the connection once it is connected (repeatable, up to 10)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": []
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "connection",
+        "wait"
+      ],
+      "name": "wait",
+      "aliases": [],
+      "description": "Wait until a connect link is used: exit 0 connected, 1 expired, cancelled or failed, 2 still open at --timeout, 130 on Ctrl-C",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "request-id",
+          "required": true,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": [
+        {
+          "flags": "--timeout <duration>",
+          "long": "--timeout",
+          "short": null,
+          "description": "How long to wait, e.g. 30s, 15m, 1h",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false,
+          "default": "15m"
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "connection",
+        "help"
+      ],
+      "name": "help",
+      "aliases": [],
+      "description": "display help for command",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "command",
+          "required": false,
+          "variadic": false,
+          "description": ""
+        }
+      ],
+      "options": []
+    },
+    {
+      "path": [
+        "app"
+      ],
+      "name": "app",
+      "aliases": [],
+      "description": "Try an app before it ships",
+      "hidden": false,
+      "arguments": [],
+      "options": [
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "app",
+        "preview"
+      ],
+      "name": "preview",
+      "aliases": [],
+      "description": "Print a one-time link that opens an app's dev copy in your own browser, no login",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "app",
+          "required": true,
+          "variadic": false,
+          "description": "App name, or the slug of any of its environment rows"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--page <id>",
+          "long": "--page",
+          "short": null,
+          "description": "Open this page first (the page's numeric doc id)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "app",
         "help"
       ],
       "name": "help",
@@ -3477,6 +5010,18 @@
           "long": "--agents",
           "short": null,
           "description": "Use AGENTS.md (for Codex, Cursor, Gemini, Windsurf, etc.)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--update",
+          "long": "--update",
+          "short": null,
+          "description": "Refresh the installed helper target and its version-stamped skills",
           "required": false,
           "value_required": false,
           "value_optional": false,
@@ -3628,6 +5173,18 @@
           "hidden": false
         },
         {
+          "flags": "--in-crew <crew>",
+          "long": "--in-crew",
+          "short": null,
+          "description": "Crew containing the role (with --role; disambiguates roles in multiple crews)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
           "flags": "--json",
           "long": "--json",
           "short": null,
@@ -3708,6 +5265,30 @@
       ],
       "options": [
         {
+          "flags": "--role <name>",
+          "long": "--role",
+          "short": null,
+          "description": "Publish a role-scoped skill of this role instead of a shared-library skill",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--in-crew <crew>",
+          "long": "--in-crew",
+          "short": null,
+          "description": "Crew containing the role (with --role; disambiguates roles in multiple crews)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
           "flags": "--json",
           "long": "--json",
           "short": null,
@@ -3757,6 +5338,30 @@
         }
       ],
       "options": [
+        {
+          "flags": "--role <role>",
+          "long": "--role",
+          "short": null,
+          "description": "Pull a role-scoped skill of this role instead of a shared-library skill",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--in-crew <crew>",
+          "long": "--in-crew",
+          "short": null,
+          "description": "Crew containing the role (with --role; disambiguates roles in multiple crews)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
         {
           "flags": "--json",
           "long": "--json",
@@ -4242,6 +5847,30 @@
       ],
       "options": [
         {
+          "flags": "--in-crew <crew>",
+          "long": "--in-crew",
+          "short": null,
+          "description": "Crew that contains the role (required to create a role; disambiguates when the name exists in several crews)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--replace-links",
+          "long": "--replace-links",
+          "short": null,
+          "description": "Replace always_load_skills / available_skills even when they differ from what role pull recorded (the server may hold links you cannot see)",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
           "flags": "--dry-run",
           "long": "--dry-run",
           "short": null,
@@ -4264,6 +5893,69 @@
           "variadic": false,
           "negated": false,
           "hidden": false
+        },
+        {
+          "flags": "-h, --help",
+          "long": "--help",
+          "short": "-h",
+          "description": "display help for command",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        }
+      ]
+    },
+    {
+      "path": [
+        "role",
+        "pull"
+      ],
+      "name": "pull",
+      "aliases": [],
+      "description": "Fetch a role and its role-scoped skills to a local folder (inverse of push)\n\nPulls the role's PUBLISHED version: a versioned role must have a snapshot (or use version_mode: live).\nInherited properties are merged by the server (RoleActivator) and are pulled as the effective value.\nFor a role with inherits_from, pushing the pulled folder back would store the inherited values on the child (a warning is printed).\nWrites SKILL.md, .solidactions-role.json and skills/<skill>/ in one atomic replace of the folder.",
+      "hidden": false,
+      "arguments": [
+        {
+          "name": "name",
+          "required": true,
+          "variadic": false,
+          "description": "Role name"
+        },
+        {
+          "name": "dir",
+          "required": false,
+          "variadic": false,
+          "description": "Destination directory (defaults to ./<name>/)"
+        }
+      ],
+      "options": [
+        {
+          "flags": "--in-crew <crew>",
+          "long": "--in-crew",
+          "short": null,
+          "description": "Crew that contains the role (disambiguates when the name exists in several crews)",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--no-skills",
+          "long": "--no-skills",
+          "short": null,
+          "description": "Pull the role only, without its role-scoped skills",
+          "required": false,
+          "value_required": false,
+          "value_optional": false,
+          "variadic": false,
+          "negated": true,
+          "hidden": false,
+          "default": true
         },
         {
           "flags": "-h, --help",
@@ -4329,14 +6021,14 @@
       ],
       "name": "push",
       "aliases": [],
-      "description": "Recursively upload a local markdown tree into SA-Docs",
+      "description": "Upload docs from local files into SA-Docs: .md as markdown, .html as a visual doc, .canvas.json / .canvas as a canvas",
       "hidden": false,
       "arguments": [
         {
-          "name": "dir",
+          "name": "path",
           "required": true,
           "variadic": false,
-          "description": "Path to the directory containing markdown files"
+          "description": "A directory of .md / .html / .canvas.json / .canvas files (walked recursively), or one such file"
         }
       ],
       "options": [
@@ -4350,14 +6042,13 @@
           "value_optional": false,
           "variadic": false,
           "negated": false,
-          "hidden": false,
-          "default": "skip"
+          "hidden": false
         },
         {
           "flags": "--type <slug>",
           "long": "--type",
           "short": null,
-          "description": "Doc-type slug to apply to all uploaded docs",
+          "description": "Doc-type slug to apply to all uploaded docs (.html and canvas files keep visual / canvas)",
           "required": false,
           "value_required": true,
           "value_optional": false,
@@ -4370,6 +6061,18 @@
           "long": "--folder",
           "short": null,
           "description": "Nest the whole upload under this base folder path in SA-Docs",
+          "required": false,
+          "value_required": true,
+          "value_optional": false,
+          "variadic": false,
+          "negated": false,
+          "hidden": false
+        },
+        {
+          "flags": "--replace <doc-id>",
+          "long": "--replace",
+          "short": null,
+          "description": "Replace the body of an existing doc (numeric id) with a single file of the same kind",
           "required": false,
           "value_required": true,
           "value_optional": false,

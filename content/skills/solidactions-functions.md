@@ -28,7 +28,7 @@ functions:
     timeout: 10
 ```
 
-Every field of a code entry: `id` (the slug pages call with `sa.action` and MCP invokes with), `name` (display name), `file` (the TypeScript source path, as for workflows), `description` (what it does), `webhook` (true to answer `POST /api/webhook/<token>`), `webhook_auth` (`hmac` default, `header` or `none`), `mcp` (boolean: list the function as an MCP tool), `mcp_tool_name` (string: the name it carries as an MCP tool), `timeout` (wall-clock seconds, 1 to 30, default 10), `confirm` (true asks the viewer first on an app page), `input_schema` (the JSON Schema describing the tool's input). There is no yaml `owner` key: the file is the owner, so the app and MCP can turn such a function off or on and nothing else (`owned_by_code`).
+Every field of a code entry: `id` (the slug pages call with `sa.action` and MCP invokes with), `name` (display name), `file` (the TypeScript source path, as for workflows), `description` (what it does), `webhook` (true to answer `POST /api/webhook/<token>`), `webhook_auth` (`hmac` default, `header` or `none`), `mcp` (boolean: list the function as an MCP tool), `mcp_tool_name` (string: the name it carries as an MCP tool), `timeout` (wall-clock seconds, 1 to 30, default 10), `confirm` (true asks the viewer first on an app page), `confirm_text` (string, at most 255 characters: the question the confirm dialog asks; shown only while `confirm` is true; needs CLI 3.38 or newer, an older CLI ignores the key without a warning, so check `solidactions --version` before relying on it; a deploy with no `confirm_text` clears it, because the file is the owner), `input_schema` (the JSON Schema describing the tool's input). A code entry needs no `owner` key: the file is the owner, so the app and MCP can turn such a function off or on and nothing else (`owned_by_code`). A pointer entry (`owner: editor`) names a function made in the app: the deploy leaves it alone.
 
 The handler reads its input and answers with a `Response`:
 
@@ -41,7 +41,14 @@ export default {
 };
 ```
 
-`env` holds the project's plain and global variables, and `env.sa`, the platform's own client: `env.sa.fetch` calls a connected API, `env.sa.workflows.start(slug, input?)` starts one of the project's own workflows, `env.sa.workflows.result(runId)` reads its result, and `env.sa.database` reaches a bound workspace database.
+`env` holds the project's plain and global variables, and `env.sa`, the platform's own client: `env.sa.fetch` calls a connected API, `env.sa.workflows.start(slug, input?)` starts one of the project's own workflows, `env.sa.workflows.start(slug, input, { after: true })` starts one after the answer, `env.sa.workflows.result(runId)` reads its result, and `env.sa.database` reaches a bound workspace database, with `batch` for several statements in one call. See `## Function extras`.
+
+## Function extras
+
+- **Start a workflow after the answer.** `await env.sa.workflows.start('weekly-report', input, { after: true });` asks for a start that happens after the function has answered, and answers `{ queued: true }` with no run id. There is no immediate refusal: a plan limit or a turned-off workflow shows up later as a "Not started" run on the workflow's run list. The run only starts if the function returns a Response below 400. A 4xx or 5xx, an uncaught throw, a timeout, a limit, an answer over 1 MB or a platform error drops it, so a function that answers "bad request" never starts the workflow. Await it before returning. A request sent after the answer is refused (`call_over`).
+- **Run several statements in one call.** `env.sa.database('ANALYTICS_DB').batch([{ sql: '...', args: [...] }, ...])` takes 1 to 50 `{ sql, args? }`, runs them in ONE round trip, and answers one `{ columns, rows, rowsAffected }` per statement, in order. It is not atomic and does not stop at a failure: every statement runs, and the first failing one is thrown as `sql_error` with the message `statement N: ...` (N counts from 1), while the statements that succeeded stay applied. Bad input, a statement that is not an object with a string `sql` and an optional array `args`, or a list that is not 1 to 50 statements, is thrown as `bad_request` before a request is made. An answer from the database that is not shaped like one is thrown as `database_unavailable`.
+- **One `sql_error` shape.** This skill names one: the `batch` shape in the bullet above.
+- **Ask before running.** A function with `confirm: true` asks first: on an app dashboard and on a visual page the host shows a confirmation dialog naming the function, and the function does not run until the viewer says yes. Set the dialog text with `confirm_text`, at most 255 characters: the dialog shows it above the standard line, and only while `confirm` is true. Without the host's confirmation the call is refused (`confirm_required`). If the viewer cancels, the page's `sa.action` rejects with `cancelled`. A function without `confirm` and a workflow call open no dialog.
 
 ## Deploy
 
@@ -51,7 +58,7 @@ A project may hold `functions:` with no `workflows:`; it then needs no `package.
 solidactions project deploy <project> <path> -e production
 ```
 
-The deploy prints one line per function, `function <id>: live <url>`, with status `live`, `unchanged` or `error`. The CLI deploy reports `owned_by_editor` for a slug the editor made: use a different `id`, or keep editing that function in the app.
+The deploy prints one line per function, `function <id>: <status>`, followed by the webhook URL only when the function has `webhook: true` and the server returned one. The status is `live` (new or changed source), `unchanged` (a redeploy with the same source) or `error` (printed as `function <id>: error <code>: <message>`). A function without a webhook prints no URL; a function removed from the yaml prints `function <id>: retired`. The CLI deploy reports `owned_by_editor` for a slug the editor made: use a different `id`, or keep editing that function in the app.
 
 ## The three doors
 
