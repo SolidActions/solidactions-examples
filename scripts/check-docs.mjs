@@ -10,6 +10,7 @@ const skillNames = [
   'solidactions-deploy-and-config',
   'solidactions-oauth-actions',
   'solidactions-crew-skills',
+  'solidactions-functions',
 ];
 const projectDirs = ['templates/minimal', 'hello-world', 'features-examples', 'google-calendar-sync', 'setup-block-tools', 'workspace-database-drizzle'];
 
@@ -44,6 +45,7 @@ const documentationFiles = [
   'README.md',
   'workflow.md',
   'features-examples/README.md',
+  'function-echo/README.md',
   'google-calendar-sync/README.md',
   'hello-world/README.md',
   'setup-block-tools/README.md',
@@ -76,6 +78,12 @@ assert(calendarEnvExample.includes('SYNC_DB is a workspace-database'), 'Google C
 assert(!calendarEnvExample.includes('SPREADSHEET_ID'), 'Google Calendar env guidance must not reference the retired Sheets backend');
 assert(!calendarEnvExample.includes('GCAL_OAUTH_TOKEN'), 'Google Calendar env guidance must not suggest raw provider tokens');
 assert(!calendarEnvExample.includes('SOLIDACTIONS_API_KEY='), 'Google Calendar env guidance must not store a CLI key in the project');
+
+const functionsSkill = await readFile(path.join(root, 'content/skills/solidactions-functions.md'), 'utf8');
+assert(functionsSkill.includes('Use a function for a quick answer; use a workflow for a long, durable, many-step job.'), 'solidactions-functions must open with the function-versus-workflow rule');
+const echoYaml = await readFile(path.join(root, 'function-echo/solidactions.yaml'), 'utf8');
+assert(/^functions:\n  - id: echo$/m.test(echoYaml), 'function-echo must declare the echo function');
+await readFile(path.join(root, 'function-echo/functions/echo.ts'), 'utf8');
 const obsoletePatterns = [
   ['retired docs host', /docs\.solidactions\.com/g],
   ['obsolete login with argv key', /solidactions login\s+<(?:api-key|your-api-key|key)>/gi],

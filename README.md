@@ -50,6 +50,7 @@ batches; after a partial failure, run the exact command printed with
 | Project | Description |
 |---------|-------------|
 | [hello-world/](./hello-world/) | Simplest possible SolidActions project — a 3-step "Hello World" workflow |
+| [function-echo/](./function-echo/) | Fast function example: one file that answers an HTTP call with the JSON it was sent |
 | [features-examples/](./features-examples/) | 15 workflows demonstrating SDK features: steps, sleep, signals, child workflows, retries, events, messaging, parallel execution, scheduling, OAuth, streaming, and webhooks |
 | [setup-block-tools/](./setup-block-tools/) | Installing CLI tools and language runtimes (ffmpeg, dbt, python3) into your workflow sandbox via the `setup:` block in `solidactions.yaml` |
 | [google-calendar-sync/](./google-calendar-sync/) | Keep two calendars from hiding conflicts: mirror creates and source-side updates in both directions, remove orphaned mirror events, and track every pair in a SolidActions workspace database on a 15-minute schedule or on demand |
@@ -62,8 +63,8 @@ See [workflow.md](./workflow.md) for a visual diagram of the full setup-to-produ
 ## AI-Assisted Development
 
 New projects created with `solidactions init --claude` or
-`solidactions init --agents` receive five local skills: getting started,
-workflow coding, deploy/config, OAuth actions, and crew skills. They also
+`solidactions init --agents` receive six local skills: getting started,
+workflow coding, deploy/config, OAuth actions, crew skills, and functions. They also
 receive `.solidactions/sdk-reference.md` and a pointer block in `CLAUDE.md` or
 `AGENTS.md`. Restart the agent after installation, then ask which SolidActions
 skill it would use to deploy a workflow; it should select
