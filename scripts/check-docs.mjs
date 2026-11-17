@@ -37,7 +37,8 @@ for (const directory of projectDirs) {
   const packageJson = JSON.parse(await readFile(path.join(root, directory, 'package.json'), 'utf8'));
   const packageLock = JSON.parse(await readFile(path.join(root, directory, 'package-lock.json'), 'utf8'));
   assert.equal(packageJson.engines?.node, '>=24', `${directory}/package.json must require Node.js 24`);
-  assert.equal(packageJson.dependencies?.['@solidactions/sdk'], '^0.8.0', `${directory}/package.json must use the current SDK line`);
+  const expectedRange = directory === 'templates/minimal' ? '^0.11.0' : '^0.8.0';
+  assert.equal(packageJson.dependencies?.['@solidactions/sdk'], expectedRange, `${directory}/package.json must declare @solidactions/sdk ${expectedRange}`);
   assert.equal(packageLock.packages?.['']?.engines?.node, '>=24', `${directory}/package-lock.json must require Node.js 24`);
 }
 

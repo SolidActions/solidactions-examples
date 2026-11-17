@@ -637,6 +637,54 @@ const client = new pg.Client(buildClientConfig(databaseUrl));
 
 A TypeScript type like `{ total: number; day: string }` will compile but be wrong at runtime — template-string interpolating a Date produces `"Wed Apr 15 2026 00:00:00 GMT+0000"`, not an ISO date. Either cast in the query (`SELECT total::float8, day::text FROM ...`) or convert in JS after reading.
 
+## DuckDB database files (openAnalytics)
+
+A DuckDB database file (`duckdb_file`) keeps one DuckDB file for you: a workflow opens it, changes it with DuckDB, and publishes the result as the next version. It needs `@solidactions/sdk` 0.11.0 or newer and Node.js 24 or newer.
+
+Create it with `solidactions database create <name> --kind duckdb_file` and bind it in `solidactions.yaml` with `database: "<name>"`, like any workspace database; the run env carries the plain database id string, which you pass to `openAnalytics`:
+
+```yaml
+env:
+  - SALES:
+      database: "sales"
+```
+
+```typescript
+import { DuckDBInstance } from '@duckdb/node-api';
+import { openAnalytics } from '@solidactions/sdk';
+
+const db = await openAnalytics(ctx.vars.SALES); // write mode: holds the write lease
+await db.step('load', async () => {
+  const instance = await DuckDBInstance.create(db.path);
+  const connection = await instance.connect();
+  try {
+    await connection.run('CREATE TABLE IF NOT EXISTS events (id BIGINT, label VARCHAR)');
+    await connection.run("INSERT INTO events VALUES (1, 'first')");
+    await connection.run('CHECKPOINT'); // leave the file quiet before the step ends
+  } finally {
+    connection.closeSync();
+    instance.closeSync();
+  }
+});
+const { version } = await db.publish(); // this file becomes the next version
+```
+
+Add the DuckDB package as a normal dependency (`npm install @duckdb/node-api`, not `--save-dev`): a run installs production dependencies only, so a dev dependency is missing at run time.
+
+`db.path` is an ordinary `<name>.duckdb` file in a work folder; `db.version` is the version it was restored from (`0` for a new, empty database). `db.step(name, fn)` is a durable step that uploads a save point when `fn` succeeds, so a run re-dispatched in a new sandbox reopens from its own last save point and skips the steps it finished; `db.save()` uploads a save point now; it is not a durable step by itself. A run that fails or ends without `publish()` changes nothing anyone else can see.
+
+`openAnalytics(ctx.vars.SALES, { readOnly: true })` opens the latest published version without the write lease; a read-only handle cannot save or publish.
+
+Rules:
+
+- **One writer at a time.** While another run holds the write lease, `openAnalytics` throws `AnalyticsError` with `code === 'lease_held'`.
+- **No lost updates.** A publish never replaces a version the run was not built on: if another run published after this run started, `openAnalytics` or `publish()` throws `base_moved`; run the workflow again so it starts from the newest version.
+- **Keep the file quiet.** Close the DuckDB connection, or run `CHECKPOINT`, before a step ends and before `save()` or `publish()`.
+
+Reading it back: `solidactions database query <name> "<sql>"` and `solidactions database schema <name>` read the latest published version (CLI 3.39 or newer); `database versions`, `database pull` and `database rollback` list, download and restore versions.
+
+The kind is off by default: a server that has not switched it on answers `feature_disabled` to create, to queries and to every run call. That means the kind is not switched on for this server yet: ask the workspace administrator or SolidActions support, and do not retry.
+
 ## Pointers
 
 - Public workflow quickstart: https://www.solidactions.com/docs/workflows/
